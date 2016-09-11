@@ -219,14 +219,17 @@ int main(int argc, char *argv[])
     // (Mandatory for programs like the shell to make them manage their outputs correctly)
     ioctl(0, TIOCSCTTY, 1);
 
-    // Execution of the program
+    // Start the shell
     {
       std::string shell = getenv("SHELL") == NULL ? "/bin/sh" : getenv("SHELL");
       execl(shell.c_str(), strrchr(shell.c_str(), '/') + 1, "-i", (char *)0);
     }
 
-    // if Error...
-    return 1;
+    // if we are here, there was an error
+    //
+    std::cerr << "Error (" << errno << ") could not start up shell from the slave." << std::endl;
+    close(slavefd);
+    exit(1);
   }
 
 
@@ -270,7 +273,8 @@ int main(int argc, char *argv[])
     if( command == "passthrough" ) \
     { \
       input[1] = 0; \
-      while( read(0, input, 1) > 0 ) \
+      termios ts, tso; \
+      while( rc = read(0, input, 1) > 0 && input[0] != 4) \
       { \
         write(masterfd, input, 1 );  \
       } \
@@ -285,11 +289,11 @@ int main(int argc, char *argv[])
   // don't need the slave fd
   close(slavefd);
 
-  if( ioPID == 0 ) // child that will do IO
+  if( ioPID == 0 ) // child that will write slaves stdout to actual stdout
   {
     // setup io monitor on master.
-    // we want to write any thing we recieve to stdout
-    //
+    // we want to write anything we recieve to stdout
+
     fd_set fd_in;
 
     while (1)
@@ -315,29 +319,33 @@ int main(int argc, char *argv[])
               // Send data on standard output
               write(1, input, rc);
             }
-            else
-            {
-              if (rc < 0)
-              {
-                fprintf(stderr, "Error %d on read masterfd PTY\n", errno);
-                exit(1);
-              }
-            }
           }
         }
       } // End switch
-    } // End while
-
+    } // End whileKILL
   }
 
 
   if( ioPID && slavePID ) // parent process. will read and run the session file.
   {  
-    // disable echo on stdin
+    // configure terminal for raw mode so we
+    // can get chars from the user and send them straight to
+    // the slave (by writing to the masterfd).
+    //
+    // note: we also need to disable echoing since the slave will
+    // echo its input.
     rc = tcgetattr(0, &orig_term_settings);
     new_term_settings = orig_term_settings;
     new_term_settings.c_lflag &= ~ECHO;
+    new_term_settings.c_lflag &= ~ICANON;
     tcsetattr(0, TCSANOW, &new_term_settings);
+    if( tcsetattr(0, TCSANOW, &new_term_settings) == -1)
+    {
+      std::cerr << "ERROR: there was a problem setting terminal to non-canonical mode" << std::endl;
+      close(masterfd);
+      exit(1);
+    }
+
 
 
 
@@ -404,9 +412,10 @@ int main(int argc, char *argv[])
   }
 
   // make sure child procs are killed
-  kill( ioPID, SIGKILL );
-  kill( slavePID, SIGKILL );
+  kill( ioPID,    SIGTERM );
+  kill( slavePID, SIGTERM );
 
+  tcsetattr(0, TCSANOW, &orig_term_settings);
 
   return 0;
 }

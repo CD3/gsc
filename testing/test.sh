@@ -5,3 +5,5 @@ echo "test line 2"
 # sim on
 echo "test line 3"
 echo "test line 4"
+# pass
+echo "done"

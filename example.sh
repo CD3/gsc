@@ -11,7 +11,7 @@ echo "turning interactive mode on. press enter."
 echo "interactive mode is on. delays are on. press enter"
 # simulate_typing off
 echo "interactive mode is on. delays are off. press enter"
-echo "entering pass through mode. after pressing enter, you will be able to interact with the shell. press Ctrl-C and Enter when done."
+echo "entering pass through mode. after pressing enter, you will be able to interact with the shell. press Ctrl-D and Enter when done."
 # passthrough
 echo "running session commands again."
 # this is a comment
