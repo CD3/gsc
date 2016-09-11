@@ -36,14 +36,68 @@ std::string toString( T v )
 
 void print_usage(std::string prog, std::ostream& out)
 {
-  std::cout <<  "\nUsage: " << prog << " <session-file>\n" << std::endl;
+  std::cout <<  "\nUsage: " << prog << " [options] <session-file>\n"
+            "\n"
+            "Options:\n"
+            "\n"
+            "-i (0|1)    Disable or allow interactive mode. If '-i 0' is given, interactive mode will not be enabled, even if a control command (see below) turns it on.\n"
+            "            If '-i 1' is given, interactive mode can still be disabled with a control command.\n"
+            "-s (0|1)    Disable or allow typing simulation mode. If '-s 0' is given, simulation mode will not be enabled, even if a control command (see below) turns it on.\n"
+            "            If '-s 1' is given, simulation mode can still be disabled with a control command.\n"
+            "\n"
+            << std::endl;
 }
 
 void print_help( std::ostream& out )
 {
   std::cout << "\n"
-            << "This is a small utility for running guided shell scripts. Lines from the script are loaded, but will not be executed\n"
-            << "until the user preses <Enter>. This is useful if you need to give a command line demo, but don't want to run the demo 'live'.\n" << std::endl;
+               "This is a small utility for running guided shell scripts.\n"
+               "Lines from the script are loaded, but will not be executed\n"
+               "until the user presses <Enter>. This is useful if you need to\n"
+               "give a command line demo, but don't want to run the demo 'live'.\n"
+               "\n"
+               "Input lines are read from a script file and passed to a pseudoterminal.\n"
+               "Comment lines (beginning with '#' are not passed to the terminal,\n"
+               "but are parsed for control commands (see below).\n"
+               "\n"
+               "\n"
+               "Control Commands:\n"
+               "\n"
+               "The behavior of gsc can be changed on the fly with control commands.\n"
+               "These commands are either entered by the user at the keyboard\n"
+               "(they will not be echoed to the screen) or placed in a comment line of\n"
+               "the session file. In either case, the command syntax is the same.\n"
+               "For example, this line\n"
+               "\n"
+               "   # interactive off\n"
+               "\n"
+               "is equivalent to the user typing 'interactive off'.\n"
+               "\n"
+               "  Supported Commands:\n"
+               "\n"
+               "  interactive (on|off)      Turn interactive mode on/off.\n"
+               "  simulate_typing (on|off)  Turn typing simulation mode on/off.\n"
+               "  pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
+               "  passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
+               "\n"
+               "  Several short versions of each command are supported."
+               "\n"
+               "  int   -> interactive\n"
+               "  sim   -> simulate_typing\n"
+               "  pass  -> passthrough\n"
+               "\n"
+               "Modes:\n"
+               "\n"
+               "gsc supports different modes of operation. Modes are not mutually exclusive, more than one mode can be active at one time.\n"
+               "\n"
+               "interactive mode           The user must hit <Enter> to execute commands.\n"
+               "typing simulation mode     Characters are loaded into the command line one at a time with a short pause between each to\n"
+               "                           simulate typing. This is useful in demos to give your audience time to process the command\n"
+               "                           you are demonstrating.\n"
+               "typing simulation mode     The user must hit <Enter> to execute commands."
+               "\n"
+
+            << std::endl;
 }
 
 
@@ -113,19 +167,30 @@ int main(int argc, char *argv[])
   char input[BUFSIZ];     // input buffer
   std::string session_file;
 
+
+  // OPTIONS
+  int opt, hflg=0, iflg=1, sflg=1;
+  while((opt = getopt(argc,argv,"hi:s:")) != EOF)
+  switch(opt)
+  {
+    case 'h': hflg=1; break;
+    case 'i': iflg=atoi(optarg); break;
+    case 's': sflg=atoi(optarg); break;
+    case '?': std::cerr << "ERROR: Unrecognized option '-" << opt <<"'\n";
+              print_help(std::cerr);
+              exit(1);
+  }
+
   // Check arguments
-  if (argc <= 1)
+  if(hflg || optind >= argc)
   {
     print_usage(std::string(argv[0]), std::cerr);
     print_help(std::cerr);
     exit(1);
   }
 
-  session_file = argv[1];
 
-  // OPTIONS
-
-
+  session_file = argv[optind];
 
 
   masterfd = posix_openpt(O_RDWR);
@@ -234,57 +299,6 @@ int main(int argc, char *argv[])
 
 
 
-
-
-
-#define PROCESS_COMMANDS \
-    command = ""; \
-    ss >> command; \
- \
-    if( command == "sim" ) \
-      command = "simulate_typing"; \
-    if( command == "int" ) \
-      command = "interactive"; \
-    if( command == "pass" ) \
-      command = "passthrough"; \
- \
-    if( command == "simulate_typing" ) \
-    { \
-      ss >> command; \
-      if(command == "off") \
-        simulate_typing = false; \
-      if(command == "on") \
-        simulate_typing = true; \
-    } \
-    if( command == "interactive" ) \
-    { \
-      ss >> command; \
-      if(command == "off") \
-        interactive = false; \
-      if(command == "on") \
-        interactive = true; \
-    } \
-    if( command == "pause" ) \
-    { \
-      int count; \
-      ss >> count; \
-      pause(count); \
-    } \
-    if( command == "passthrough" ) \
-    { \
-      input[1] = 0; \
-      termios ts, tso; \
-      while( rc = read(0, input, 1) > 0 && input[0] != 4) \
-      { \
-        write(masterfd, input, 1 );  \
-      } \
-    } \
-
-
-
-
-
-
   // this proc talks to the master, so we
   // don't need the slave fd
   close(slavefd);
@@ -359,8 +373,10 @@ int main(int argc, char *argv[])
       lines.push_back( line );
 
 
+    std::string commandstr;
     bool simulate_typing = true;
     bool interactive     = true;
+    bool wstdout         = true;
 
 
     std::stringstream ss;
@@ -373,11 +389,8 @@ int main(int argc, char *argv[])
 
       if( std::regex_search( line, comment_regex ) )
       {
-        ss.str( std::regex_replace( line, comment_regex, "" ) );
-        ss.clear();
-        
-        PROCESS_COMMANDS
-
+        commandstr = std::regex_replace( line, comment_regex, "" );
+        #include "process_commands.h"
       }
 
       // skip comments
@@ -390,20 +403,19 @@ int main(int argc, char *argv[])
       for( j = 0; j < line.size(); j++)
       {
         write(masterfd, linep+j, 1);
-        if(simulate_typing)
+        if(sflg && simulate_typing)
         {
           rand_pause();
         }
       }
 
-      if(interactive)
+      if(iflg && interactive)
       {
         nc = read(0, input, BUFSIZ);
         input[nc-1] = 0;
 
-        ss.str( input );
-        ss.clear();
-        PROCESS_COMMANDS
+        commandstr = input;
+        #include "process_commands.h"
       }
 
       write(masterfd, "\r", 1);

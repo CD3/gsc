@@ -6,6 +6,9 @@ echo "interactive mode is off. delays are on"
 echo "a three second delay is comming"
 # delay 30
 echo "delay is over"
+# stdout off
+echo "this file was created silently." >> TMP.txt
+# stdout on
 echo "turning interactive mode on. press enter."
 # interactive on
 echo "interactive mode is on. delays are on. press enter"
