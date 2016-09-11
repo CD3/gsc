@@ -12,6 +12,66 @@ It is similar to `script`, but you actually generate the terminal output live an
 This is very useful for giving command line demonstrations. You can load each line of the script into the terminal, discuss the command that is about
 to be executed, and then press `<Enter>` to execute the command and see its output.
 
+## Usage
+
+```
+Usage: ./build/gsc [options] <session-file>
+
+Options:
+
+-i (0|1)    Disable or allow interactive mode. If '-i 0' is given, interactive mode will not be enabled, even if a control command (see below) turns it on.
+            If '-i 1' is given, interactive mode can still be disabled with a control command.
+-s (0|1)    Disable or allow typing simulation mode. If '-s 0' is given, simulation mode will not be enabled, even if a control command (see below) turns it on.
+            If '-s 1' is given, simulation mode can still be disabled with a control command.
+
+
+
+This is a small utility for running guided shell scripts.
+Lines from the script are loaded, but will not be executed
+until the user presses <Enter>. This is useful if you need to
+give a command line demo, but don't want to run the demo 'live'.
+
+Input lines are read from a script file and passed to a pseudoterminal.
+Comment lines (beginning with '#' are not passed to the terminal,
+but are parsed for control commands (see below).
+
+
+Control Commands:
+
+The behavior of gsc can be changed on the fly with control commands.
+These commands are either entered by the user at the keyboard
+(they will not be echoed to the screen) or placed in a comment line of
+the session file. In either case, the command syntax is the same.
+For example, this line
+
+   # interactive off
+
+is equivalent to the user typing 'interactive off'.
+
+  Supported Commands:
+
+  interactive (on|off)      Turn interactive mode on/off.
+  simulate_typing (on|off)  Turn typing simulation mode on/off.
+  pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).
+  passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.
+
+  Several short versions of each command are supported.
+  int   -> interactive
+  sim   -> simulate_typing
+  pass  -> passthrough
+
+Modes:
+
+gsc supports different modes of operation. Modes are not mutually exclusive, more than one mode can be active at one time.
+
+interactive mode           The user must hit <Enter> to execute commands.
+typing simulation mode     Characters are loaded into the command line one at a time with a short pause between each to
+                           simulate typing. This is useful in demos to give your audience time to process the command
+                           you are demonstrating.
+typing simulation mode     The user must hit <Enter> to execute commands.
+
+```
+
 ## Motivation
 
 This utility was created out of a need to run live demos of command line utilities in a computing class that I teach. The problem is, I am not an accurate typer. I also
