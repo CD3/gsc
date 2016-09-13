@@ -158,8 +158,8 @@ int main(int argc, char *argv[])
 {
   int masterfd, slavefd;  // master and slave file descriptors
   char *slavedevice; // slave filename
-  pid_t slavePID, ioPID; // PIDs for calls to fork.
-  int ioPipe[2];
+  pid_t slavePID, outputPID; // PIDs for calls to fork.
+  int outputPipe[2];
   struct termios orig_term_settings; // Saved terminal settings
   struct termios new_term_settings; // Current terminal settings
   struct winsize window_size; // the terminal window size
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
   // So, we will do each of these in their own porcess.
   
   slavePID = 1;
-  ioPID = 1;
+  outputPID = 1;
 
   slavePID = fork();
   if( slavePID == -1)
@@ -235,15 +235,15 @@ int main(int argc, char *argv[])
     // we don't need the slavefd in this proc
     close(slavefd);
 
-    // open a pipe that we will use to send commands to the io proc
-    if( pipe(ioPipe) == -1)
-      fail("io pipe open");
+    // open a pipe that we will use to send commands to the output proc
+    if( pipe(outputPipe) == -1)
+      fail("output pipe open");
 
-    // create proc to do io
-    ioPID = fork();
+    // create proc to do output
+    outputPID = fork();
 
-    if( ioPID == -1)
-      fail("fork io proc");
+    if( outputPID == -1)
+      fail("fork output proc");
   }
 
 
@@ -300,14 +300,14 @@ int main(int argc, char *argv[])
 
 
 
-  if( ioPID == 0 ) // child that will write slaves stdout to actual stdout
+  if( outputPID == 0 ) // child that will write slaves stdout to actual stdout
   {
-    // setup io monitor on masterfd that will write slave output to stdout.
+    // setup output monitor on masterfd that will write slave output to stdout.
     // we want to write anything we recieve to stdout
 
     // close the write end of the pip
-    if(close(ioPipe[1]) == -1)
-      fail("closing io pipe write end");
+    if(close(outputPipe[1]) == -1)
+      fail("closing output pipe write end");
 
     fd_set fd_in;
     bool talk = true;
@@ -316,9 +316,9 @@ int main(int argc, char *argv[])
     {
       FD_ZERO(&fd_in);
       FD_SET(masterfd, &fd_in);
-      FD_SET(ioPipe[0], &fd_in);
+      FD_SET(outputPipe[0], &fd_in);
 
-      rc = select(ioPipe[0]+1, &fd_in, NULL, NULL, NULL);
+      rc = select(outputPipe[0]+1, &fd_in, NULL, NULL, NULL);
       switch(rc)
       {
         case -1 : fprintf(stderr, "Error %d on select()\n", errno);
@@ -328,9 +328,9 @@ int main(int argc, char *argv[])
         {
 
           // data on our command pipe
-          if (FD_ISSET(ioPipe[0], &fd_in))
+          if (FD_ISSET(outputPipe[0], &fd_in))
           {
-            rc = read(ioPipe[0], input, sizeof(input));
+            rc = read(outputPipe[0], input, sizeof(input));
             if (rc > 0)
             {
               str = input;
@@ -355,12 +355,12 @@ int main(int argc, char *argv[])
   }
 
 
-  if( ioPID && slavePID ) // parent process. will read and run the session file.
+  if( outputPID && slavePID ) // parent process. will read and run the session file.
   {  
 
     // close the read end of the pip
-    if(close(ioPipe[0]) == -1)
-      fail("closing io pipe read end");
+    if(close(outputPipe[0]) == -1)
+      fail("closing output pipe read end");
 
     // configure terminal for raw mode so we
     // can get chars from the user and send them straight to
@@ -437,7 +437,7 @@ int main(int argc, char *argv[])
   }
 
   // make sure child procs are killed
-  kill( ioPID,    SIGTERM );
+  kill( outputPID,    SIGTERM );
   kill( slavePID, SIGTERM );
 
   tcsetattr(0, TCSANOW, &orig_term_settings);

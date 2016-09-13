@@ -52,7 +52,15 @@ if( command == "stdout" )
 {
   ss >> command;
   if(command == "off")
-    write( ioPipe[1], "stdout off", sizeof("stdout off") );
+    write( outputPipe[1], "stdout off", sizeof("stdout off") );
   if(command == "on")
-    write( ioPipe[1], "stdout on", sizeof("stdout on") );
+    write( outputPipe[1], "stdout on", sizeof("stdout on") );
+}
+if( command == "pause_min" )
+{
+  ss >> pause_min;
+}
+if( command == "pause_max" )
+{
+  ss >> pause_max;
 }
