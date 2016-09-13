@@ -52,7 +52,7 @@ if( command == "stdout" )
 {
   ss >> command;
   if(command == "off")
-    wstdout = false;
+    write( ioPipe[1], "stdout off", sizeof("stdout off") );
   if(command == "on")
-    wstdout = true;
+    write( ioPipe[1], "stdout on", sizeof("stdout on") );
 }

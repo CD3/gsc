@@ -34,6 +34,7 @@ std::string toString( T v )
   return ss.str();
 }
 
+
 void print_usage(std::string prog, std::ostream& out)
 {
   std::cout <<  "\nUsage: " << prog << " [options] <session-file>\n"
@@ -79,6 +80,7 @@ void print_help( std::ostream& out )
                "  simulate_typing (on|off)  Turn typing simulation mode on/off.\n"
                "  pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
                "  passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
+               "  stdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
                "\n"
                "  Several short versions of each command are supported."
                "\n"
@@ -122,11 +124,10 @@ inline std::string trim(
   return trim( trim( s, delimiters ), delimiters );
 }
 
-template<typename... Args>
-std::string fail(int rc, Args... args)
+void fail(std::string msg)
 {
-
-  exit(rc);
+  std::cerr << "Error (" << errno << "): " << msg << std::endl;
+  exit(1);
 }
 
 
@@ -145,7 +146,7 @@ void pause(long counts)
 }
 
 int pause_min = 1;
-int pause_max = 4;
+int pause_max = 1;
 void rand_pause()
 {
   pause( pause_min + (pause_max-pause_min)*(double)rand()/(double)RAND_MAX );
@@ -158,6 +159,7 @@ int main(int argc, char *argv[])
   int masterfd, slavefd;  // master and slave file descriptors
   char *slavedevice; // slave filename
   pid_t slavePID, ioPID; // PIDs for calls to fork.
+  int ioPipe[2];
   struct termios orig_term_settings; // Saved terminal settings
   struct termios new_term_settings; // Current terminal settings
   struct winsize window_size; // the terminal window size
@@ -165,6 +167,7 @@ int main(int argc, char *argv[])
   int rc; // return codes for C functions
   int nc; // num chars
   char input[BUFSIZ];     // input buffer
+  std::string str;     // string for misc uses
   std::string session_file;
 
 
@@ -200,9 +203,7 @@ int main(int argc, char *argv[])
   ||  unlockpt(masterfd) != 0
   ||  (slavedevice = ptsname(masterfd)) == NULL)
   {
-    std::cerr << "Error (" << errno << ") could not setup master side of pty" << std::endl;
-    close(masterfd);
-    return 1;
+    fail("pty setup");
   }
 
   // get the current window size
@@ -227,23 +228,25 @@ int main(int argc, char *argv[])
 
   slavePID = fork();
   if( slavePID == -1)
-  {
-    std::cerr << "Error (" << errno << ") could not fork slave process" << std::endl;
-    close(masterfd);
-    close(slavefd);
-    return 1;
-  }
+    fail("fork slave proc");
 
   if( slavePID != 0 ) // parent process gets child PID. child gets 0.
+  {
+    // we don't need the slavefd in this proc
+    close(slavefd);
+
+    // open a pipe that we will use to send commands to the io proc
+    if( pipe(ioPipe) == -1)
+      fail("io pipe open");
+
+    // create proc to do io
     ioPID = fork();
 
-  if( ioPID == -1)
-  {
-    std::cerr << "Error (" << errno << ") could not fork io process" << std::endl;
-    close(masterfd);
-    close(slavefd);
-    return 1;
+    if( ioPID == -1)
+      fail("fork io proc");
   }
+
+
 
   // OK, we have our 3 processes.
   
@@ -292,47 +295,59 @@ int main(int argc, char *argv[])
 
     // if we are here, there was an error
     //
-    std::cerr << "Error (" << errno << ") could not start up shell from the slave." << std::endl;
-    close(slavefd);
-    exit(1);
+    fail("execl");
   }
 
 
 
-  // this proc talks to the master, so we
-  // don't need the slave fd
-  close(slavefd);
-
   if( ioPID == 0 ) // child that will write slaves stdout to actual stdout
   {
-    // setup io monitor on master.
+    // setup io monitor on masterfd that will write slave output to stdout.
     // we want to write anything we recieve to stdout
 
+    // close the write end of the pip
+    if(close(ioPipe[1]) == -1)
+      fail("closing io pipe write end");
+
     fd_set fd_in;
+    bool talk = true;
 
     while (1)
     {
       FD_ZERO(&fd_in);
-      FD_SET(0, &fd_in);
       FD_SET(masterfd, &fd_in);
+      FD_SET(ioPipe[0], &fd_in);
 
-      rc = select(masterfd + 1, &fd_in, NULL, NULL, NULL);
+      rc = select(ioPipe[0]+1, &fd_in, NULL, NULL, NULL);
       switch(rc)
       {
         case -1 : fprintf(stderr, "Error %d on select()\n", errno);
                   exit(1);
 
-        default :
+        default : // one or more file descriptors have input
         {
-          // If data on master side of PTY
+
+          // data on our command pipe
+          if (FD_ISSET(ioPipe[0], &fd_in))
+          {
+            rc = read(ioPipe[0], input, sizeof(input));
+            if (rc > 0)
+            {
+              str = input;
+              if( str == "stdout off" )
+                talk = false;
+              if( str == "stdout on" )
+                talk = true;
+            }
+          }
+
+          // data on master side of PTY
+          // read and print to stdout
           if (FD_ISSET(masterfd, &fd_in))
           {
             rc = read(masterfd, input, sizeof(input));
-            if (rc > 0)
-            {
-              // Send data on standard output
-              write(1, input, rc);
-            }
+            if (talk && rc > 0)
+              write(1, input, rc); // Write data on standard output
           }
         }
       } // End switch
@@ -342,6 +357,11 @@ int main(int argc, char *argv[])
 
   if( ioPID && slavePID ) // parent process. will read and run the session file.
   {  
+
+    // close the read end of the pip
+    if(close(ioPipe[0]) == -1)
+      fail("closing io pipe read end");
+
     // configure terminal for raw mode so we
     // can get chars from the user and send them straight to
     // the slave (by writing to the masterfd).
@@ -354,11 +374,7 @@ int main(int argc, char *argv[])
     new_term_settings.c_lflag &= ~ICANON;
     tcsetattr(0, TCSANOW, &new_term_settings);
     if( tcsetattr(0, TCSANOW, &new_term_settings) == -1)
-    {
-      std::cerr << "ERROR: there was a problem setting terminal to non-canonical mode" << std::endl;
-      close(masterfd);
-      exit(1);
-    }
+      fail("configuring terminal to non-canonical mode");
 
 
 
@@ -376,7 +392,6 @@ int main(int argc, char *argv[])
     std::string commandstr;
     bool simulate_typing = true;
     bool interactive     = true;
-    bool wstdout         = true;
 
 
     std::stringstream ss;
@@ -404,9 +419,7 @@ int main(int argc, char *argv[])
       {
         write(masterfd, linep+j, 1);
         if(sflg && simulate_typing)
-        {
           rand_pause();
-        }
       }
 
       if(iflg && interactive)
