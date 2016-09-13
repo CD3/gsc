@@ -81,6 +81,8 @@ void print_help( std::ostream& out )
                "  pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
                "  passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
                "  stdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
+               "  pause_min COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
+               "  pause_max COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
                "\n"
                "  Several short versions of each command are supported."
                "\n"
