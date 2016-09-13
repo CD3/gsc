@@ -400,6 +400,7 @@ int main(int argc, char *argv[])
     int i, j;
     for( i = 0; i < lines.size(); i++)
     {
+
       line = rtrim( lines[i] );
 
       if( std::regex_search( line, comment_regex ) )
@@ -413,6 +414,18 @@ int main(int argc, char *argv[])
           continue;
 
 
+      // require user command before *and* after a line is loaded.
+      // before line is loaded...
+      if(iflg && interactive)
+      {
+        nc = read(0, input, BUFSIZ);
+        input[nc-1] = 0;
+
+        commandstr = input;
+        #include "process_commands.h"
+      }
+
+
       linep = line.c_str();
 
       for( j = 0; j < line.size(); j++)
@@ -422,6 +435,7 @@ int main(int argc, char *argv[])
           rand_pause();
       }
 
+      // after line is loaded...
       if(iflg && interactive)
       {
         nc = read(0, input, BUFSIZ);
