@@ -10,6 +10,7 @@
 #include <sys/select.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include <signal.h>
 #include <fcntl.h>
@@ -25,28 +26,23 @@
 
 #include <regex>
 
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 
-template<typename T>
-std::string toString( T v )
+
+bool fileExists(const std::string& filename)
 {
-  std::stringstream ss;
-  ss << v;
-  return ss.str();
+  struct stat buf;
+  if (stat(filename.c_str(), &buf) != -1)
+    return true;
+  return false;
 }
-
 
 void print_usage(std::string prog, std::ostream& out)
 {
-  std::cout <<  "\nUsage: " << prog << " [options] <session-file>\n"
-            "\n"
-            "Options:\n"
-            "\n"
-            "-i (0|1)    Disable or allow interactive mode. If '-i 0' is given, interactive mode will not be enabled, even if a control command (see below) turns it on.\n"
-            "            If '-i 1' is given, interactive mode can still be disabled with a control command.\n"
-            "-s (0|1)    Disable or allow typing simulation mode. If '-s 0' is given, simulation mode will not be enabled, even if a control command (see below) turns it on.\n"
-            "            If '-s 1' is given, simulation mode can still be disabled with a control command.\n"
-            "\n"
-            << std::endl;
+  std::cout <<  "Usage: " << prog << " [options] <session-file>" << std::endl;
 }
 
 void print_help( std::ostream& out )
@@ -64,41 +60,47 @@ void print_help( std::ostream& out )
                "\n"
                "Control Commands:\n"
                "\n"
-               "The behavior of gsc can be changed on the fly with control commands.\n"
-               "These commands are either entered by the user at the keyboard\n"
-               "(they will not be echoed to the screen) or placed in a comment line of\n"
-               "the session file. In either case, the command syntax is the same.\n"
-               "For example, this line\n"
+               "\tThe behavior of `gsc` can be changed on the fly with control commands.\n"
+               "\tControl commands are given in comment lines (lines beginning with a '#') of the session file.\n"
+               "\tFor example, this line will disable interactive mode (commands will be loaded and executed without user input).\n"
                "\n"
-               "   # interactive off\n"
+               "\t   # interactive off\n"
                "\n"
-               "is equivalent to the user typing 'interactive off'.\n"
+               "\tSupported Commands:\n"
                "\n"
-               "  Supported Commands:\n"
+               "\tinteractive (on|off)      Turn interactive mode on/off.\n"
+               "\tsimulate_typing (on|off)  Turn typing simulation mode on/off.\n"
+               "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
+               "\tpassthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
+               "\tstdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
+               "\tpause_min COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
+               "\tpause_max COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
                "\n"
-               "  interactive (on|off)      Turn interactive mode on/off.\n"
-               "  simulate_typing (on|off)  Turn typing simulation mode on/off.\n"
-               "  pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
-               "  passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
-               "  stdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
-               "  pause_min COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
-               "  pause_max COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
+               "\tSeveral short versions of each command are supported."
                "\n"
-               "  Several short versions of each command are supported."
+               "\tint   -> interactive\n"
+               "\tsim   -> simulate_typing\n"
+               "\tpass  -> passthrough\n"
                "\n"
-               "  int   -> interactive\n"
-               "  sim   -> simulate_typing\n"
-               "  pass  -> passthrough\n"
+               "\tModes:\n"
                "\n"
-               "Modes:\n"
+               "\t\t`gsc` supports different modes of operation. Modes are not mutually exclusive, more than one mode can be active at one time.\n"
                "\n"
-               "gsc supports different modes of operation. Modes are not mutually exclusive, more than one mode can be active at one time.\n"
+               "\t\tinteractive mode           The user must hit <Enter> to load and execute commands.\n"
+               "\t\ttyping simulation mode     Characters are loaded into the command line one at a time with a short pause between each to\n"
+               "\t\t                           simulate typing. This is useful in demos to give your audience time to process the command\n"
+               "\t\t                           you are demonstrating.\n"
+               "\t\tpassthrough mode           The script is paused and input is taken from the user. This is useful if you need to enter a password\n"
+               "\t\t                           or want to run a few extra commands in the middle of a script.\n"
                "\n"
-               "interactive mode           The user must hit <Enter> to execute commands.\n"
-               "typing simulation mode     Characters are loaded into the command line one at a time with a short pause between each to\n"
-               "                           simulate typing. This is useful in demos to give your audience time to process the command\n"
-               "                           you are demonstrating.\n"
-               "typing simulation mode     The user must hit <Enter> to execute commands."
+               "\n"
+               "Keyboard Commands:\n"
+               "\n"
+               "\tVarious keyboard commands can be given in interactive mode to modify the normal flow of the script:\n"
+               "\n"
+               "\t\tb : backup       go back one line in the script."
+               "\t\ts : skip         skip current line in script."
+               "\t\tp : passthrough  enable passthrough mode."
                "\n"
 
             << std::endl;
@@ -109,13 +111,19 @@ inline std::string rtrim(
   const std::string& s,
   const std::string& delimiters = " \f\n\r\t\v" )
 {
-  return s.substr( 0, s.find_last_not_of( delimiters ) + 1 );
+  auto pos = s.find_last_not_of( delimiters );
+  if( pos == std::string::npos )
+    return "";
+  return s.substr( 0, pos + 1 );
 }
 
 inline std::string ltrim(
   const std::string& s,
   const std::string& delimiters = " \f\n\r\t\v" )
 {
+  auto pos = s.find_last_not_of( delimiters );
+  if( pos == std::string::npos )
+    return "";
   return s.substr( s.find_first_not_of( delimiters ) );
 }
 
@@ -123,7 +131,7 @@ inline std::string trim(
   const std::string& s,
   const std::string& delimiters = " \f\n\r\t\v" )
 {
-  return trim( trim( s, delimiters ), delimiters );
+  return ltrim( rtrim( s, delimiters ), delimiters );
 }
 
 void fail(std::string msg)
@@ -174,32 +182,48 @@ int main(int argc, char *argv[])
 
 
   // OPTIONS
-  int opt, hflg=0, iflg=1, sflg=1;
-  while((opt = getopt(argc,argv,"hi:s:")) != EOF)
-  switch(opt)
-  {
-    case 'h': hflg=1; break;
-    case 'i': iflg=atoi(optarg); break;
-    case 's': sflg=atoi(optarg); break;
-    case '?': std::cerr << "ERROR: Unrecognized option '-" << opt <<"'\n";
-              print_help(std::cerr);
-              exit(1);
-  }
+
+  po::options_description options("Global options");
+  options.add_options()
+    ("help,h"            , "print help message")
+    ("interactive,i"     , "start in interactive mode")
+    ("simulate-typing,s" , "simulating typing")
+    ("session-file"      , "script file to run.")
+    ;
+
+  po::positional_options_description args;
+  args.add("session-file", 1);
+
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).options(options).positional(args).run(), vm);
+  po::notify(vm);
+
+
+  bool iflg = vm.count("interactive");
+  bool sflg = vm.count("simulate-typing");
+  bool hflg = vm.count("help");
+
+
 
   // Check arguments
-  if(hflg || optind >= argc)
+  if(hflg)
   {
     print_usage(std::string(argv[0]), std::cerr);
+    std::cout << options << std::endl;
     print_help(std::cerr);
     exit(1);
   }
 
 
-  session_file = argv[optind];
+  session_file = vm["session-file"].as<std::string>();
+  if(!fileExists(session_file))
+  {
+    fail("Session file does not exists ("+session_file+")");
+  }
 
 
+  // create master side of the PTY
   masterfd = posix_openpt(O_RDWR);
-
   if( masterfd < 0
   ||  grantpt(masterfd) != 0
   ||  unlockpt(masterfd) != 0
@@ -219,11 +243,11 @@ int main(int argc, char *argv[])
 
   // OK, we have three things that need to happen now.
   //
-  // 1. a shell is executed and attached to to the slave device (i.e. its standard input/output/error are directed at teh slave)
+  // 1. a shell is executed and attached to to the slave device (i.e. its standard input/output/error are directed at the slave)
   // 2. lines from the session file are read and then written to the masterfd.
   // 3. ouput from the slave is read from the masterfd and written to stdout.
   //
-  // So, we will do each of these in their own porcess.
+  // So, we will do each of these in their own process.
   
   slavePID = 1;
   outputPID = 1;
@@ -307,7 +331,7 @@ int main(int argc, char *argv[])
     // setup output monitor on masterfd that will write slave output to stdout.
     // we want to write anything we recieve to stdout
 
-    // close the write end of the pip
+    // close the write end of the pipe
     if(close(outputPipe[1]) == -1)
       fail("closing output pipe write end");
 
@@ -329,6 +353,15 @@ int main(int argc, char *argv[])
         default : // one or more file descriptors have input
         {
 
+          // data on master side of PTY
+          // read and print to stdout
+          if (FD_ISSET(masterfd, &fd_in))
+          {
+            rc = read(masterfd, input, sizeof(input));
+            if (talk && rc > 0)
+              write(1, input, rc); // Write data on standard output
+          }
+
           // data on our command pipe
           if (FD_ISSET(outputPipe[0], &fd_in))
           {
@@ -343,14 +376,6 @@ int main(int argc, char *argv[])
             }
           }
 
-          // data on master side of PTY
-          // read and print to stdout
-          if (FD_ISSET(masterfd, &fd_in))
-          {
-            rc = read(masterfd, input, sizeof(input));
-            if (talk && rc > 0)
-              write(1, input, rc); // Write data on standard output
-          }
         }
       } // End switch
     } // End whileKILL
@@ -360,7 +385,7 @@ int main(int argc, char *argv[])
   if( outputPID && slavePID ) // parent process. will read and run the session file.
   {  
 
-    // close the read end of the pip
+    // close the read end of the pipe
     if(close(outputPipe[0]) == -1)
       fail("closing output pipe read end");
 
@@ -392,60 +417,52 @@ int main(int argc, char *argv[])
 
 
     std::string commandstr;
+    std::vector<std::string> commandtoks;
     bool simulate_typing = true;
     bool interactive     = true;
 
 
     std::stringstream ss;
-    std::string command;
+    std::string tok;
     std::regex comment_regex("^[ \t]*#");
     int i, j;
+    bool line_loaded;
+    
     for( i = 0; i < lines.size(); i++)
     {
 
-      line = rtrim( lines[i] );
+      line = trim( lines[i] );
+      line_loaded=false;
+      
 
       if( std::regex_search( line, comment_regex ) )
       {
         commandstr = std::regex_replace( line, comment_regex, "" );
+        commandstr = trim(commandstr);
+        commandtoks = boost::split( commandtoks, commandstr, boost::is_any_of(" \t,") );
         #include "process_commands.h"
       }
 
-      // skip comments
+      // skip comments (could also use an else statement)
       if( std::regex_search( line, comment_regex ) )
           continue;
 
 
       // require user command before *and* after a line is loaded.
       // before line is loaded...
-      if(iflg && interactive)
-      {
-        nc = read(0, input, BUFSIZ);
-        input[nc-1] = 0;
-
-        commandstr = input;
-        #include "process_commands.h"
-      }
-
+      #include "handle_interactive_commands.h"
 
       linep = line.c_str();
-
       for( j = 0; j < line.size(); j++)
       {
         write(masterfd, linep+j, 1);
         if(sflg && simulate_typing)
           rand_pause();
       }
+      line_loaded=true;
 
       // after line is loaded...
-      if(iflg && interactive)
-      {
-        nc = read(0, input, BUFSIZ);
-        input[nc-1] = 0;
-
-        commandstr = input;
-        #include "process_commands.h"
-      }
+      #include "handle_interactive_commands.h"
 
       write(masterfd, "\r", 1);
 
