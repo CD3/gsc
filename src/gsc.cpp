@@ -186,8 +186,8 @@ int main(int argc, char *argv[])
   po::options_description options("Global options");
   options.add_options()
     ("help,h"            , "print help message")
-    ("interactive,i"     , "start in interactive mode")
-    ("simulate-typing,s" , "simulating typing")
+    ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
+    ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
     ("session-file"      , "script file to run.")
     ;
 
@@ -199,8 +199,8 @@ int main(int argc, char *argv[])
   po::notify(vm);
 
 
-  bool iflg = vm.count("interactive");
-  bool sflg = vm.count("simulate-typing");
+  bool iflg = vm["interactive"].as<bool>();
+  bool sflg = vm["simulate-typing"].as<bool>();
   bool hflg = vm.count("help");
 
 

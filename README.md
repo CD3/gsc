@@ -15,15 +15,12 @@ to be executed, and then press `<Enter>` to execute the command and see its outp
 ## Usage
 
 ```
-Usage: ./build/gsc [options] <session-file>
-
-Options:
-
--i (0|1)    Disable or allow interactive mode. If '-i 0' is given, interactive mode will not be enabled, even if a control command (see below) turns it on.
-            If '-i 1' is given, interactive mode can still be disabled with a control command.
--s (0|1)    Disable or allow typing simulation mode. If '-s 0' is given, simulation mode will not be enabled, even if a control command (see below) turns it on.
-            If '-s 1' is given, simulation mode can still be disabled with a control command.
-
+Usage: ./gsc [options] <session-file>
+Global options:
+  -h [ --help ]                     print help message
+  -i [ --interactive ] arg (=1)     disable/enable interactive mode
+  -s [ --simulate-typing ] arg (=1) disable/enable simulating typing
+  --session-file                    script file to run.
 
 
 This is a small utility for running guided shell scripts.
@@ -38,40 +35,45 @@ but are parsed for control commands (see below).
 
 Control Commands:
 
-The behavior of gsc can be changed on the fly with control commands.
-These commands are either entered by the user at the keyboard
-(they will not be echoed to the screen) or placed in a comment line of
-the session file. In either case, the command syntax is the same.
-For example, this line
+	The behavior of `gsc` can be changed on the fly with control commands.
+	Control commands are given in comment lines (lines beginning with a '#') of the session file.
+	For example, this line will disable interactive mode (commands will be loaded and executed without user input).
 
-   # interactive off
+	   # interactive off
 
-is equivalent to the user typing 'interactive off'.
+	Supported Commands:
 
-  Supported Commands:
+	interactive (on|off)      Turn interactive mode on/off.
+	simulate_typing (on|off)  Turn typing simulation mode on/off.
+	pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).
+	passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.
+	stdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.
+	pause_min COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.
+	pause_max COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.
 
-  interactive (on|off)      Turn interactive mode on/off.
-  simulate_typing (on|off)  Turn typing simulation mode on/off.
-  pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).
-  passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.
-  stdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.
-  pause_min COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.
-  pause_max COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.
+	Several short versions of each command are supported.
+	int   -> interactive
+	sim   -> simulate_typing
+	pass  -> passthrough
 
-  Several short versions of each command are supported.
-  int   -> interactive
-  sim   -> simulate_typing
-  pass  -> passthrough
+	Modes:
 
-Modes:
+		`gsc` supports different modes of operation. Modes are not mutually exclusive, more than one mode can be active at one time.
 
-gsc supports different modes of operation. Modes are not mutually exclusive, more than one mode can be active at one time.
+		interactive mode           The user must hit <Enter> to load and execute commands.
+		typing simulation mode     Characters are loaded into the command line one at a time with a short pause between each to
+		                           simulate typing. This is useful in demos to give your audience time to process the command
+		                           you are demonstrating.
+		passthrough mode           The script is paused and input is taken from the user. This is useful if you need to enter a password
+		                           or want to run a few extra commands in the middle of a script.
 
-interactive mode           The user must hit <Enter> to execute commands.
-typing simulation mode     Characters are loaded into the command line one at a time with a short pause between each to
-                           simulate typing. This is useful in demos to give your audience time to process the command
-                           you are demonstrating.
-typing simulation mode     The user must hit <Enter> to execute commands.
+
+Keyboard Commands:
+
+	Various keyboard commands can be given in interactive mode to modify the normal flow of the script:
+
+		b : backup       go back one line in the script.		s : skip         skip current line in script.		p : passthrough  enable passthrough mode.
+
 
 ```
 
@@ -106,6 +108,6 @@ support for commands, so the user could type some command instead of just hittin
 Everything was good with `ttyrun`, it pretty much did what I wanted, except that I really had no idea how it worked. I didn't understand the pseudo terminal, and it was getting more
 difficult to add features that required me to modify more than just what I had hacked. So, I decided to step back and start over. I finally did some reading and figured out how the
 pseudo terminal worked (just barely, I'm still not an expert by any means). `gsc` is the result of me starting with a tutorial on pseudo terminals
-(http://rachid.koucha.free.fr/tech_corner/pty_pdip.html) and building a program I that I could understand. The original code was pretty much just the example given in the tutorial, but
+(http://rachid.koucha.free.fr/tech_corner/pty_pdip.html) and building a program that I could understand. The original code was pretty much just the example given in the tutorial, but
 I have gradually modified/updated it to add more features. The first thing I did was switch to C++. Most of the code that interacts with the pseudo terminal and the user is still straight C, but
 I wanted to use C++ features when convenient (for example, reading a file into a vector of strings).
