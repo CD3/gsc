@@ -188,7 +188,9 @@ int main(int argc, char *argv[])
     ("help,h"            , "print help message")
     ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
     ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
-    ("session-file"      , "script file to run.")
+    ("shell"             , po::value<std::string>(), "use shell instead of default.")
+    ("wait-chars,c"      , po::value<std::string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
+    ("session-file"      , po::value<std::string>(), "script file to run.")
     ;
 
   po::positional_options_description args;
@@ -315,7 +317,11 @@ int main(int argc, char *argv[])
 
     // Start the shell
     {
-      std::string shell = getenv("SHELL") == NULL ? "/bin/sh" : getenv("SHELL");
+      std::string shell;
+      if( vm.count("shell") )
+        shell = vm["shell"].as<std::string>();
+      else
+        shell = getenv("SHELL") == NULL ? "/bin/sh" : getenv("SHELL");
       execl(shell.c_str(), strrchr(shell.c_str(), '/') + 1, "-i", (char *)0);
     }
 
@@ -458,6 +464,9 @@ int main(int argc, char *argv[])
         write(masterfd, linep+j, 1);
         if(sflg && simulate_typing)
           rand_pause();
+        if( interactive && strchr(vm["wait-chars"].as<std::string>().c_str(), linep[j]) != NULL )
+          nc = read(0, input, BUFSIZ);
+
       }
       line_loaded=true;
 
