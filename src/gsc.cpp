@@ -31,8 +31,10 @@ namespace po = boost::program_options;
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+using namespace std;
 
-bool fileExists(const std::string& filename)
+
+bool fileExists(const string& filename)
 {
   struct stat buf;
   if (stat(filename.c_str(), &buf) != -1)
@@ -40,14 +42,14 @@ bool fileExists(const std::string& filename)
   return false;
 }
 
-void print_usage(std::string prog, std::ostream& out)
+void print_usage(string prog, ostream& out)
 {
-  std::cout <<  "Usage: " << prog << " [options] <session-file>" << std::endl;
+  cout <<  "Usage: " << prog << " [options] <session-file>" << endl;
 }
 
-void print_help( std::ostream& out )
+void print_help( ostream& out )
 {
-  std::cout << "\n"
+  cout << "\n"
                "This is a small utility for running guided shell scripts.\n"
                "Lines from the script are loaded, but will not be executed\n"
                "until the user presses <Enter>. This is useful if you need to\n"
@@ -103,40 +105,40 @@ void print_help( std::ostream& out )
                "\t\tp : passthrough  enable passthrough mode."
                "\n"
 
-            << std::endl;
+            << endl;
 }
 
 
-inline std::string rtrim(
-  const std::string& s,
-  const std::string& delimiters = " \f\n\r\t\v" )
+inline string rtrim(
+  const string& s,
+  const string& delimiters = " \f\n\r\t\v" )
 {
   auto pos = s.find_last_not_of( delimiters );
-  if( pos == std::string::npos )
+  if( pos == string::npos )
     return "";
   return s.substr( 0, pos + 1 );
 }
 
-inline std::string ltrim(
-  const std::string& s,
-  const std::string& delimiters = " \f\n\r\t\v" )
+inline string ltrim(
+  const string& s,
+  const string& delimiters = " \f\n\r\t\v" )
 {
   auto pos = s.find_last_not_of( delimiters );
-  if( pos == std::string::npos )
+  if( pos == string::npos )
     return "";
   return s.substr( s.find_first_not_of( delimiters ) );
 }
 
-inline std::string trim(
-  const std::string& s,
-  const std::string& delimiters = " \f\n\r\t\v" )
+inline string trim(
+  const string& s,
+  const string& delimiters = " \f\n\r\t\v" )
 {
   return ltrim( rtrim( s, delimiters ), delimiters );
 }
 
-void fail(std::string msg)
+void fail(string msg)
 {
-  std::cerr << "Error (" << errno << "): " << msg << std::endl;
+  cerr << "Error (" << errno << "): " << msg << endl;
   exit(1);
 }
 
@@ -163,7 +165,6 @@ void rand_pause()
 }
 
 
-
 int main(int argc, char *argv[])
 {
   int masterfd, slavefd;  // master and slave file descriptors
@@ -177,8 +178,8 @@ int main(int argc, char *argv[])
   int rc; // return codes for C functions
   int nc; // num chars
   char input[BUFSIZ];     // input buffer
-  std::string str;     // string for misc uses
-  std::string session_file;
+  string str;     // string for misc uses
+  string session_file;
 
 
   // OPTIONS
@@ -188,9 +189,10 @@ int main(int argc, char *argv[])
     ("help,h"            , "print help message")
     ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
     ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
-    ("shell"             , po::value<std::string>(), "use shell instead of default.")
-    ("wait-chars,c"      , po::value<std::string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
-    ("session-file"      , po::value<std::string>(), "script file to run.")
+    ("shell"             , po::value<string>(), "use shell instead of default.")
+    ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
+    ("command,c"         , po::value<vector<string>>()->composing(), "run command run before starting the script.")
+    ("session-file"      , po::value<string>(), "script file to run.")
     ;
 
   po::positional_options_description args;
@@ -199,6 +201,26 @@ int main(int argc, char *argv[])
   po::variables_map vm;
   po::store(po::command_line_parser(argc, argv).options(options).positional(args).run(), vm);
   po::notify(vm);
+
+  // read options from local config file if it exits
+  string configfn = ".gscrc";
+  if(fileExists(configfn))
+  {
+    ifstream ifs(configfn.c_str());
+    po::store(po::parse_config_file(ifs, options), vm);
+    po::notify(vm);
+  }
+  if( getenv("HOME") != NULL )
+  {
+    configfn = string(getenv("HOME"))+"/"+configfn;
+    if(fileExists(configfn))
+    {
+      ifstream ifs(configfn.c_str());
+      po::store(po::parse_config_file(ifs, options), vm);
+      po::notify(vm);
+    }
+  }
+
 
 
   bool iflg = vm["interactive"].as<bool>();
@@ -210,14 +232,14 @@ int main(int argc, char *argv[])
   // Check arguments
   if(hflg)
   {
-    print_usage(std::string(argv[0]), std::cerr);
-    std::cout << options << std::endl;
-    print_help(std::cerr);
+    print_usage(string(argv[0]), cerr);
+    cout << options << endl;
+    print_help(cerr);
     exit(1);
   }
 
 
-  session_file = vm["session-file"].as<std::string>();
+  session_file = vm["session-file"].as<string>();
   if(!fileExists(session_file))
   {
     fail("Session file does not exists ("+session_file+")");
@@ -317,9 +339,9 @@ int main(int argc, char *argv[])
 
     // Start the shell
     {
-      std::string shell;
+      string shell;
       if( vm.count("shell") )
-        shell = vm["shell"].as<std::string>();
+        shell = vm["shell"].as<string>();
       else
         shell = getenv("SHELL") == NULL ? "/bin/sh" : getenv("SHELL");
       execl(shell.c_str(), strrchr(shell.c_str(), '/') + 1, "-i", (char *)0);
@@ -413,27 +435,45 @@ int main(int argc, char *argv[])
 
 
 
-    // Read in session file.
-    std::string line;
+    string line;
     const char *linep;
-    std::vector<std::string> lines;
-    std::ifstream in( session_file.c_str() );
-    while (std::getline(in, line))
+    vector<string> lines;
+
+    string commandstr;
+    vector<string> commandtoks;
+    stringstream ss;
+    string tok;
+    regex comment_regex("^[ \t]*#");
+
+    int i, j;
+
+    // run initial commands
+    if( vm.count("command") )
+    {
+      for( i = 0; i < vm["command"].as<vector<string>>().size(); i++ )
+      {
+        line = trim( vm["command"].as<vector<string>>()[i] );
+        write(masterfd, line.c_str(), line.size());
+        write(masterfd, "\r", 1);
+      }
+
+    }
+    
+
+
+
+
+    // Read in session file.
+    ifstream in( session_file.c_str() );
+    while (getline(in, line))
       lines.push_back( line );
 
-
-    std::string commandstr;
-    std::vector<std::string> commandtoks;
     bool simulate_typing = true;
     bool interactive     = true;
-
-
-    std::stringstream ss;
-    std::string tok;
-    std::regex comment_regex("^[ \t]*#");
-    int i, j;
     bool line_loaded;
-    
+    bool exit = false;
+
+
     for( i = 0; i < lines.size(); i++)
     {
 
@@ -441,22 +481,24 @@ int main(int argc, char *argv[])
       line_loaded=false;
       
 
-      if( std::regex_search( line, comment_regex ) )
+      if( regex_search( line, comment_regex ) )
       {
-        commandstr = std::regex_replace( line, comment_regex, "" );
+        commandstr = regex_replace( line, comment_regex, "" );
         commandstr = trim(commandstr);
         commandtoks = boost::split( commandtoks, commandstr, boost::is_any_of(" \t,") );
         #include "process_commands.h"
       }
 
       // skip comments (could also use an else statement)
-      if( std::regex_search( line, comment_regex ) )
+      if( regex_search( line, comment_regex ) )
           continue;
 
 
       // require user command before *and* after a line is loaded.
       // before line is loaded...
       #include "handle_interactive_commands.h"
+      if(exit)
+        break;
 
       linep = line.c_str();
       for( j = 0; j < line.size(); j++)
@@ -464,7 +506,7 @@ int main(int argc, char *argv[])
         write(masterfd, linep+j, 1);
         if(sflg && simulate_typing)
           rand_pause();
-        if( interactive && strchr(vm["wait-chars"].as<std::string>().c_str(), linep[j]) != NULL )
+        if( interactive && strchr(vm["wait-chars"].as<string>().c_str(), linep[j]) != NULL )
           nc = read(0, input, BUFSIZ);
 
       }

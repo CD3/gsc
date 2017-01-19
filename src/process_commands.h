@@ -116,7 +116,7 @@ if( tok == "s" ) // skip
   continue;
 }
 
-if( tok == "p" ) // skip
+if( tok == "p" ) // passthrough
 {
   input[1] = 0;
   termios ts, tso;
@@ -124,4 +124,9 @@ if( tok == "p" ) // skip
   {
     write(masterfd, input, 1 ); 
   }
+}
+
+if( tok == "x" ) // exit
+{
+  exit = true;
 }
