@@ -189,6 +189,7 @@ int main(int argc, char *argv[])
     ("help,h"            , "print help message")
     ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
     ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
+    ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second).")
     ("shell"             , po::value<string>(), "use shell instead of default.")
     ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
     ("command,c"         , po::value<vector<string>>()->composing(), "run command run before starting the script.")
@@ -455,6 +456,7 @@ int main(int argc, char *argv[])
         line = trim( vm["command"].as<vector<string>>()[i] );
         write(masterfd, line.c_str(), line.size());
         write(masterfd, "\r", 1);
+
       }
 
     }
@@ -516,6 +518,7 @@ int main(int argc, char *argv[])
       #include "handle_interactive_commands.h"
 
       write(masterfd, "\r", 1);
+      pause( vm["pause"].as<int>() );
 
     }
   }
