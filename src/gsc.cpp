@@ -164,6 +164,29 @@ void rand_pause()
   pause( pause_min + (pause_max-pause_min)*(double)rand()/(double)RAND_MAX );
 }
 
+string messenger = "file";
+void message(string msg)
+{
+  if(messenger == "file")
+  {
+    ofstream out(".gsc-messages", ios_base::app);
+    out << msg << endl;
+    out.close();
+  }
+
+  if(messenger == "notify-send")
+  {
+    string cmd = "notify-send '"+msg+"'";
+    system(cmd.c_str());
+  }
+
+  if(messenger == "xmessage")
+  {
+    string cmd = "xmessage '"+msg+"'";
+    system(cmd.c_str());
+  }
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -193,6 +216,9 @@ int main(int argc, char *argv[])
     ("shell"             , po::value<string>(), "use shell instead of default.")
     ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
     ("command,c"         , po::value<vector<string>>()->composing(), "run command run before starting the script.")
+    ("preview"           , "write script lines to a file before they are loaded.")
+    ("messenger"         , po::value<string>(), "the method to use for messages")
+    ("list-messengers"   , "list the supported messengers")
     ("session-file"      , po::value<string>(), "script file to run.")
     ;
 
@@ -228,6 +254,15 @@ int main(int argc, char *argv[])
   bool sflg = vm["simulate-typing"].as<bool>();
   bool hflg = vm.count("help");
 
+  if( vm.count("messenger") )
+    messenger = vm["messenger"].as<string>();
+
+  if( vm.count("list-messengers") )
+  {
+    cout << "messenger: \n"
+         << "\t file\n"
+         ;
+  }
 
 
   // Check arguments
@@ -467,8 +502,12 @@ int main(int argc, char *argv[])
 
     // Read in session file.
     ifstream in( session_file.c_str() );
+    ofstream pfs;
+    if( vm.count("preview") )
+      pfs.open(".gsc-preview");
     while (getline(in, line))
       lines.push_back( line );
+    in.close();
 
     bool simulate_typing = true;
     bool interactive     = true;
@@ -478,6 +517,7 @@ int main(int argc, char *argv[])
 
     for( i = 0; i < lines.size(); i++)
     {
+      pfs << lines[i] << endl;
 
       line = trim( lines[i] );
       line_loaded=false;
@@ -521,7 +561,10 @@ int main(int argc, char *argv[])
       pause( vm["pause"].as<int>() );
 
     }
+
+    pfs.close();
   }
+
 
   // make sure child procs are killed
   kill( outputPID,    SIGTERM );

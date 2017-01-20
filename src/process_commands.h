@@ -9,7 +9,12 @@
 
 tok = "";
 if( commandtoks.size() )
+{
   tok = commandtoks[0];
+  // remove command from the commandstr
+  commandstr.erase(0,tok.size());
+  commandstr = trim(commandstr);
+}
 
 
 // support for command shorthands and aliases
@@ -21,6 +26,8 @@ if( tok == "delay" )
   tok = "pause";
 if( tok == "pass" )
   tok = "passthrough";
+if( tok == "mess" )
+  tok = "message";
 
 
 #define get_arg(n,d) \
@@ -77,6 +84,10 @@ if( tok == "pause_max" )
 {
   get_arg(1,"0");
   pause_max = boost::lexical_cast<int>(tok);
+}
+if( tok == "message" )
+{
+  message( commandstr );
 }
 
 
