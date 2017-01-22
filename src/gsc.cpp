@@ -479,7 +479,8 @@ int main(int argc, char *argv[])
     vector<string> commandtoks;
     stringstream ss;
     string tok;
-    regex comment_regex("^[ \t]*#");
+    regex comment_regex("[ \t]*#.*$");
+    regex comment_line_regex("^[ \t]*#");
 
     int i, j;
 
@@ -520,20 +521,24 @@ int main(int argc, char *argv[])
       pfs << lines[i] << endl;
 
       line = trim( lines[i] );
+      // remove comment from line if it exists
       line_loaded=false;
       
 
-      if( regex_search( line, comment_regex ) )
+      if( regex_search( line, comment_line_regex ) )
       {
-        commandstr = regex_replace( line, comment_regex, "" );
+        commandstr = regex_replace( line, comment_line_regex, "" );
         commandstr = trim(commandstr);
         commandtoks = boost::split( commandtoks, commandstr, boost::is_any_of(" \t,") );
         #include "process_commands.h"
       }
 
       // skip comments (could also use an else statement)
-      if( regex_search( line, comment_regex ) )
+      if( regex_search( line, comment_line_regex ) )
           continue;
+
+      // remove any comments from the line
+      line = regex_replace( line, comment_regex, "" );
 
 
       // require user command before *and* after a line is loaded.
