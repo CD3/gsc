@@ -16,6 +16,8 @@ if not os.path.exists( "assert.sh" ):
 
 for fn in sys.argv[1:]:
   print "TESTING:",fn
+  dirf=fn+".test.tmp"
+  dirf=os.path.abspath(dirf)
 
   with open(fn) as f:
     lines = f.readlines()
@@ -24,11 +26,21 @@ for fn in sys.argv[1:]:
   test_lines = []
   test_lines.append("#! /bin/bash")
   test_lines.append("source assert.sh")
+  test_lines.append("g() {\ncd $(cat %s)\n}"%dirf)
+  test_lines.append("s() {\npwd>%s\n}"%dirf)
+  test_lines.append("s")
   for line in lines:
 
     toks = line.split('#')
     cmd = toks[0].strip()
     com = toks[1].strip() if len(toks) > 1 else ""
+
+    # skip empty commands
+    if cmd == "":
+      continue
+
+    # wrap command in changdir
+    cmd = "g;\n{c};\ne=$?;s;exit $e".format(c=cmd,d=dirf)
 
     # get the expected exit status
     exit = "0"
@@ -36,9 +48,7 @@ for fn in sys.argv[1:]:
     if len(toks) > 0 and (toks[0] == "e" or toks[0] == "exit"):
       exit = toks[1]
 
-    # escape any special characters in the cmd
-    cmd = json.dumps(cmd)
-    cmd = 'assert_raises {0} {1}'.format(cmd,exit)
+    cmd = "assert_raises '{0}' {1}".format(cmd,exit)
 
     test_lines.append(cmd)
 
