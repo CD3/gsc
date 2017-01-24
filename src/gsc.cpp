@@ -216,6 +216,10 @@ int main(int argc, char *argv[])
     ("shell"             , po::value<string>(), "use shell instead of default.")
     ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
     ("command,c"         , po::value<vector<string>>()->composing(), "run command run before starting the script.")
+    ("post-command"      , po::value<vector<string>>()->composing(), "run command run before starting the script.")
+    ("setup-command"     , po::value<vector<string>>()->composing(), "setup command(s) that will be ran before the script.")
+    ("cleanup-command"   , po::value<vector<string>>()->composing(), "cleanup command(s) that will be ran after the script.")
+    ("config"            , po::value<string>(), "config file with options to read.")
     ("preview"           , "write script lines to a file before they are loaded.")
     ("messenger"         , po::value<string>(), "the method to use for messages")
     ("list-messengers"   , "list the supported messengers")
@@ -229,17 +233,31 @@ int main(int argc, char *argv[])
   po::store(po::command_line_parser(argc, argv).options(options).positional(args).run(), vm);
   po::notify(vm);
 
+  string configfn;
+
+  // read options from config file option
+  if(vm.count("config"))
+  {
+    configfn = vm["config"].as<string>();
+    if(!fileExists(configfn))
+      fail("Config file does not exists ("+configfn+")");
+
+    ifstream ifs(configfn.c_str());
+    po::store(po::parse_config_file(ifs, options), vm);
+    po::notify(vm);
+  }
   // read options from local config file if it exits
-  string configfn = ".gscrc";
+  configfn = ".gscrc";
   if(fileExists(configfn))
   {
     ifstream ifs(configfn.c_str());
     po::store(po::parse_config_file(ifs, options), vm);
     po::notify(vm);
   }
+  // read options from local config file if it exits
   if( getenv("HOME") != NULL )
   {
-    configfn = string(getenv("HOME"))+"/"+configfn;
+    configfn = string(getenv("HOME"))+"/.gscrc";
     if(fileExists(configfn))
     {
       ifstream ifs(configfn.c_str());
@@ -484,6 +502,23 @@ int main(int argc, char *argv[])
 
     int i, j;
 
+
+    // run setup commands
+    write( outputPipe[1], "stdout off", sizeof("stdout off") );
+    pause(10);
+    if( vm.count("setup-command") )
+    {
+      for( i = 0; i < vm["setup-command"].as<vector<string>>().size(); i++ )
+      {
+        line = trim( vm["setup-command"].as<vector<string>>()[i] );
+        write(masterfd, line.c_str(), line.size());
+        write(masterfd, "\r", 1);
+
+      }
+    }
+    write( outputPipe[1], "stdout on", sizeof("stdout on") );
+    pause(10);
+
     // run initial commands
     if( vm.count("command") )
     {
@@ -492,9 +527,7 @@ int main(int argc, char *argv[])
         line = trim( vm["command"].as<vector<string>>()[i] );
         write(masterfd, line.c_str(), line.size());
         write(masterfd, "\r", 1);
-
       }
-
     }
     
 
@@ -568,6 +601,19 @@ int main(int argc, char *argv[])
     }
 
     pfs.close();
+
+    // run cleanup commands
+    write( outputPipe[1], "stdout off", sizeof("stdout off") );
+    pause(10);
+    if( vm.count("cleanup-command") )
+    {
+      for( i = 0; i < vm["cleanup-command"].as<vector<string>>().size(); i++ )
+      {
+        line = trim( vm["cleanup-command"].as<vector<string>>()[i] );
+        write(masterfd, line.c_str(), line.size());
+        write(masterfd, "\r", 1);
+      }
+    }
   }
 
 
