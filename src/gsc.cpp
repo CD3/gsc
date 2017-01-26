@@ -215,8 +215,6 @@ int main(int argc, char *argv[])
     ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second).")
     ("shell"             , po::value<string>(), "use shell instead of default.")
     ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
-    ("command,c"         , po::value<vector<string>>()->composing(), "run command run before starting the script.")
-    ("post-command"      , po::value<vector<string>>()->composing(), "run command run before starting the script.")
     ("setup-command"     , po::value<vector<string>>()->composing(), "setup command(s) that will be ran before the script.")
     ("cleanup-command"   , po::value<vector<string>>()->composing(), "cleanup command(s) that will be ran after the script.")
     ("config"            , po::value<string>(), "config file with options to read.")
@@ -513,23 +511,10 @@ int main(int argc, char *argv[])
         line = trim( vm["setup-command"].as<vector<string>>()[i] );
         write(masterfd, line.c_str(), line.size());
         write(masterfd, "\r", 1);
-
       }
     }
     write( outputPipe[1], "stdout on", sizeof("stdout on") );
     pause(10);
-
-    // run initial commands
-    if( vm.count("command") )
-    {
-      for( i = 0; i < vm["command"].as<vector<string>>().size(); i++ )
-      {
-        line = trim( vm["command"].as<vector<string>>()[i] );
-        write(masterfd, line.c_str(), line.size());
-        write(masterfd, "\r", 1);
-      }
-    }
-    
 
 
 
@@ -597,10 +582,13 @@ int main(int argc, char *argv[])
 
       write(masterfd, "\r", 1);
       pause( vm["pause"].as<int>() );
-
     }
 
+    pfs << "DONE" << endl;
     pfs.close();
+
+    // wait for the user before exiting
+    nc = read(0, input, BUFSIZ);
 
     // run cleanup commands
     write( outputPipe[1], "stdout off", sizeof("stdout off") );
