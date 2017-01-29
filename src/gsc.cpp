@@ -75,8 +75,7 @@ void print_help( ostream& out )
                "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
                "\tpassthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
                "\tstdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
-               "\trand_pause_min COUNT      Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
-               "\trand_pause_max COUNT      Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
+               "\tinclude \"script.sh\"       Include the contents of script.sh in this script.\n"
                "\n"
                "\tSeveral short versions of each command are supported."
                "\n"
@@ -103,11 +102,11 @@ void print_help( ostream& out )
                "\t\tb : backup       go back one line in the script."
                "\t\ts : skip         skip current line in script."
                "\t\tp : passthrough  enable passthrough mode."
+               "\t\tx : exit         stop the demo and exit. cleanup commands will still be ran."
                "\n"
 
             << endl;
 }
-
 
 inline string rtrim(
   const string& s,
@@ -141,8 +140,6 @@ void fail(string msg)
   cerr << "Error (" << errno << "): " << msg << endl;
   exit(1);
 }
-
-
 
 void pause(long counts)
 {
@@ -187,6 +184,57 @@ void message(string msg)
   }
 }
 
+string dirname( string path )
+{
+  string dir;
+
+  std::size_t found = path.find_last_of("/\\");
+  dir = path.substr(0,found);
+
+  return dir;
+}
+
+string basename( string path )
+{
+  string filename;
+
+  std::size_t found = path.find_last_of("/\\");
+  filename = path.substr(found+1);
+
+  return filename;
+}
+
+string path_join( string a, string b )
+{
+  return a+'/'+b;
+}
+
+vector<string> load_script( string filename )
+{
+  vector<string> lines;
+  string line;
+  ifstream in( filename.c_str() );
+
+  regex include_statement("^[ \t]*#[ \t]*include[ \t]+([^ ]*)");
+  smatch match;
+
+  while(getline(in, line))
+  {
+    if( regex_search( line, match, include_statement ) && match.size() > 1 )
+    {
+      string fn = trim(match.str(1),"\"" );
+      auto llines = load_script( path_join(dirname(filename),fn) );
+      lines.insert(lines.end(), llines.begin(), llines.end());
+    }
+    else
+    {
+      lines.push_back( line );
+    }
+  }
+  in.close();
+
+  return lines;
+}
 
 int main(int argc, char *argv[])
 {
@@ -501,9 +549,9 @@ int main(int argc, char *argv[])
 
 
 
+    vector<string> lines;
     string line;
     const char *linep;
-    vector<string> lines;
 
     string commandstr;
     vector<string> commandtoks;
@@ -534,13 +582,11 @@ int main(int argc, char *argv[])
 
 
     // Read in session file.
-    ifstream in( session_file.c_str() );
+    lines = load_script( vm["session-file"].as<string>() );
+    // setup preview file
     ofstream pfs;
     if( vm.count("preview") )
       pfs.open(".gsc-preview");
-    while (getline(in, line))
-      lines.push_back( line );
-    in.close();
 
     bool simulate_typing = true;
     bool interactive     = true;
@@ -598,15 +644,17 @@ int main(int argc, char *argv[])
       pause( vm["pause"].as<int>() );
     }
 
+    // close preview file
     pfs << "DONE" << endl;
     pfs.close();
 
-    // wait for the user before exiting
-    nc = read(0, input, BUFSIZ);
+    // wait for the user before exiting unless the exit command was given
+    if(!exit)
+      nc = read(0, input, BUFSIZ);
 
     // run cleanup commands
     write( outputPipe[1], "stdout off", sizeof("stdout off") );
-    pause(10);
+    pause(1);
     if( vm.count("cleanup-command") )
     {
       for( i = 0; i < vm["cleanup-command"].as<vector<string>>().size(); i++ )
@@ -614,8 +662,10 @@ int main(int argc, char *argv[])
         line = trim( vm["cleanup-command"].as<vector<string>>()[i] );
         write(masterfd, line.c_str(), line.size());
         write(masterfd, "\r", 1);
+        pause(1);
       }
     }
+    pause(10);
   }
 
 
