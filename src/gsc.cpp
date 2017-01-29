@@ -75,8 +75,8 @@ void print_help( ostream& out )
                "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
                "\tpassthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
                "\tstdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
-               "\tpause_min COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
-               "\tpause_max COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
+               "\trand_pause_min COUNT      Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
+               "\trand_pause_max COUNT      Set minimum pause time (in # of tenths of a second) when simulating typing.\n"
                "\n"
                "\tSeveral short versions of each command are supported."
                "\n"
@@ -157,11 +157,11 @@ void pause(long counts)
   return;
 }
 
-int pause_min = 1;
-int pause_max = 1;
+int rand_pause_min = 1;
+int rand_pause_max = 1;
 void rand_pause()
 {
-  pause( pause_min + (pause_max-pause_min)*(double)rand()/(double)RAND_MAX );
+  pause( rand_pause_min + (rand_pause_max-rand_pause_min)*(double)rand()/(double)RAND_MAX );
 }
 
 string messenger = "file";
@@ -213,6 +213,8 @@ int main(int argc, char *argv[])
     ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
     ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
     ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second).")
+    ("rand_pause_min"    , po::value<int>()->default_value(1),     "minimum pause time during simulated typing.")
+    ("rand_pause_max"    , po::value<int>()->default_value(1),     "maximum pause time during simulated typing.")
     ("shell"             , po::value<string>(), "use shell instead of default.")
     ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
     ("setup-command"     , po::value<vector<string>>()->composing(), "setup command(s) that will be ran before the script.")
@@ -269,6 +271,18 @@ int main(int argc, char *argv[])
   bool iflg = vm["interactive"].as<bool>();
   bool sflg = vm["simulate-typing"].as<bool>();
   bool hflg = vm.count("help");
+
+  if( vm.count("rand_pause_min") )
+    rand_pause_min = vm["rand_pause_min"].as<int>();
+  if( vm.count("rand_pause_max") )
+    rand_pause_max = vm["rand_pause_max"].as<int>();
+
+  if( rand_pause_max < rand_pause_min )
+    rand_pause_max = rand_pause_min;
+  if( rand_pause_min > rand_pause_max )
+    rand_pause_min = rand_pause_max;
+
+
 
   if( vm.count("messenger") )
     messenger = vm["messenger"].as<string>();

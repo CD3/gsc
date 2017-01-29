@@ -75,16 +75,6 @@ if( tok == "stdout" )
   if(tok == "on")
     write( outputPipe[1], "stdout on", sizeof("stdout on") );
 }
-if( tok == "pause_min" )
-{
-  get_arg(1,"0");
-  pause_min = boost::lexical_cast<int>(tok);
-}
-if( tok == "pause_max" )
-{
-  get_arg(1,"0");
-  pause_max = boost::lexical_cast<int>(tok);
-}
 if( tok == "message" )
 {
   message( commandstr );
