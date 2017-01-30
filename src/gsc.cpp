@@ -189,7 +189,10 @@ string dirname( string path )
   string dir;
 
   std::size_t found = path.find_last_of("/\\");
-  dir = path.substr(0,found);
+  if(found == string::npos)
+    dir = ".";
+  else
+    dir = path.substr(0,found);
 
   return dir;
 }
@@ -211,6 +214,8 @@ string path_join( string a, string b )
 
 vector<string> load_script( string filename )
 {
+  if(!fileExists(filename))
+    fail("Script file does not exists ("+filename+")");
   vector<string> lines;
   string line;
   ifstream in( filename.c_str() );
