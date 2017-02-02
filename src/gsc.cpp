@@ -24,7 +24,7 @@
 #include <sstream>
 #include <fstream>
 
-#include <regex>
+#include <boost/regex.hpp>
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
@@ -220,12 +220,12 @@ vector<string> load_script( string filename )
   string line;
   ifstream in( filename.c_str() );
 
-  regex include_statement("^[ \t]*#[ \t]*include[ \t]+([^ ]*)");
-  smatch match;
+  boost::regex include_statement("^[ \t]*#[ \t]*include[ \t]+([^ ]*)");
+  boost::smatch match;
 
   while(getline(in, line))
   {
-    if( regex_search( line, match, include_statement ) && match.size() > 1 )
+    if( boost::regex_search( line, match, include_statement ) && match.size() > 1 )
     {
       string fn = trim(match.str(1),"\"" );
       auto llines = load_script( path_join(dirname(filename),fn) );
@@ -562,8 +562,8 @@ int main(int argc, char *argv[])
     vector<string> commandtoks;
     stringstream ss;
     string tok;
-    regex comment_regex("[ \t]*#.*$");
-    regex comment_line_regex("^[ \t]*#");
+    boost::regex comment_regex("(?<!\\\\)#.*$");
+    boost::regex comment_line_regex("^[ \t]*#");
 
     int i, j;
 
@@ -608,20 +608,22 @@ int main(int argc, char *argv[])
       line_loaded=false;
       
 
-      if( regex_search( line, comment_line_regex ) )
+      if( boost::regex_search( line, comment_line_regex ) )
       {
-        commandstr = regex_replace( line, comment_line_regex, "" );
+        commandstr = boost::regex_replace( line, comment_line_regex, "" );
         commandstr = trim(commandstr);
         commandtoks = boost::split( commandtoks, commandstr, boost::is_any_of(" \t,") );
         #include "process_commands.h"
       }
 
       // skip comments (could also use an else statement)
-      if( regex_search( line, comment_line_regex ) )
+      if( boost::regex_search( line, comment_line_regex ) )
           continue;
-
       // remove any comments from the line
-      line = regex_replace( line, comment_regex, "" );
+      line = boost::regex_replace( line, comment_regex, "" );
+      // replace an escaped hashtags
+      line = boost::regex_replace( line, boost::regex("\\\\#"), "#" );
+
 
 
       // require user command before *and* after a line is loaded.

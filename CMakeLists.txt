@@ -5,6 +5,11 @@ cmake_minimum_required( VERSION 2.8 )
 find_package( Boost COMPONENTS program_options REQUIRED)
 include_directories( ${Boost_INCLUDE_DIRS} )
 set( Boost_LIBS ${Boost_LIBS} ${Boost_LIBRARIES} )
+
+find_package( Boost COMPONENTS regex REQUIRED)
+include_directories( ${Boost_INCLUDE_DIRS} )
+set( Boost_LIBS ${Boost_LIBS} ${Boost_LIBRARIES} )
+
 add_definitions("-std=c++11")
 
 
