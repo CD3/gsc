@@ -61,9 +61,10 @@ if( tok == "pause" )
 if( tok == "passthrough" )
 {
   input[1] = 0;
-  termios ts, tso;
   while( rc = read(0, input, 1) > 0 && input[0] != 4)
   {
+    if( (int)input[0] == 10 )
+      input[0] = '\r'; // replace returns with \r
     write(masterfd, input, 1 ); 
   }
 }
@@ -120,9 +121,10 @@ if( tok == "s" ) // skip
 if( tok == "p" ) // passthrough
 {
   input[1] = 0;
-  termios ts, tso;
   while( rc = read(0, input, 1) > 0 && input[0] != 4)
   {
+    if( (int)input[0] == 10 )
+      input[0] = '\r'; // replace returns with \r
     write(masterfd, input, 1 ); 
   }
 }
