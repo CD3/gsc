@@ -72,7 +72,7 @@ void print_help( ostream& out )
                "\n"
                "\tinteractive (on|off)      Turn interactive mode on/off.\n"
                "\tsimulate_typing (on|off)  Turn typing simulation mode on/off.\n"
-               "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).\n"
+               "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second) after running each command.\n"
                "\tpassthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
                "\tstdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
                "\tinclude \"script.sh\"       Include the contents of script.sh in this script.\n"
@@ -568,20 +568,22 @@ int main(int argc, char *argv[])
     int i, j;
 
 
-    // run setup commands
-    write( outputPipe[1], "stdout off", sizeof("stdout off") );
-    pause(10);
     if( vm.count("setup-command") )
     {
+    // run setup commands
+      write( outputPipe[1], "stdout off", sizeof("stdout off") );
+      pause(10);
+
       for( i = 0; i < vm["setup-command"].as<vector<string>>().size(); i++ )
       {
         line = trim( vm["setup-command"].as<vector<string>>()[i] );
         write(masterfd, line.c_str(), line.size());
         write(masterfd, "\r", 1);
       }
+
+      write( outputPipe[1], "stdout on", sizeof("stdout on") );
+      pause(10);
     }
-    write( outputPipe[1], "stdout on", sizeof("stdout on") );
-    pause(10);
 
 
 
@@ -638,7 +640,7 @@ int main(int argc, char *argv[])
         write(masterfd, linep+j, 1);
         if(sflg && simulate_typing)
           rand_pause();
-        if( interactive && strchr(vm["wait-chars"].as<string>().c_str(), linep[j]) != NULL )
+        if( iflg && interactive && strchr(vm["wait-chars"].as<string>().c_str(), linep[j]) != NULL )
           nc = read(0, input, BUFSIZ);
 
       }
@@ -656,14 +658,15 @@ int main(int argc, char *argv[])
     pfs.close();
 
     // wait for the user before exiting unless the exit command was given
-    if(!exit)
+    // or we are in non-interactive mode
+    if(iflg && interactive && !exit)
       nc = read(0, input, BUFSIZ);
 
-    // run cleanup commands
-    write( outputPipe[1], "stdout off", sizeof("stdout off") );
-    pause(1);
     if( vm.count("cleanup-command") )
     {
+      // run cleanup commands
+      write( outputPipe[1], "stdout off", sizeof("stdout off") );
+      pause(1);
       for( i = 0; i < vm["cleanup-command"].as<vector<string>>().size(); i++ )
       {
         line = trim( vm["cleanup-command"].as<vector<string>>()[i] );
@@ -671,8 +674,8 @@ int main(int argc, char *argv[])
         write(masterfd, "\r", 1);
         pause(1);
       }
+      pause(10);
     }
-    pause(10);
   }
 
 
