@@ -265,6 +265,7 @@ int main(int argc, char *argv[])
     ("help,h"            , "print help message")
     ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
     ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
+    ("test,t"            , "run script in non-interactive mode and check for errors.")
     ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second).")
     ("rand_pause_min"    , po::value<int>()->default_value(1),     "minimum pause time during simulated typing.")
     ("rand_pause_max"    , po::value<int>()->default_value(1),     "maximum pause time during simulated typing.")
@@ -325,6 +326,15 @@ int main(int argc, char *argv[])
   bool sflg = vm["simulate-typing"].as<bool>();
   bool hflg = vm.count("help");
 
+  int pause_time = vm["pause"].as<int>();
+
+  if(vm.count("test"))
+  {
+    iflg = false;
+    sflg = false;
+    pause_time = 1;
+  }
+
   if( vm.count("rand_pause_min") )
     rand_pause_min = vm["rand_pause_min"].as<int>();
   if( vm.count("rand_pause_max") )
@@ -334,8 +344,6 @@ int main(int argc, char *argv[])
     rand_pause_max = rand_pause_min;
   if( rand_pause_min > rand_pause_max )
     rand_pause_min = rand_pause_max;
-
-
 
   if( vm.count("messenger") )
     messenger = vm["messenger"].as<string>();
@@ -650,7 +658,7 @@ int main(int argc, char *argv[])
       #include "handle_interactive_commands.h"
 
       write(masterfd, "\r", 1);
-      pause( vm["pause"].as<int>() );
+      pause( pause_time );
     }
 
     // close preview file
