@@ -15,12 +15,30 @@ to be executed, and then press `<Enter>` to execute the command and see its outp
 ## Usage
 
 ```
-Usage: ./gsc [options] <session-file>
+Usage: gsc [options] <session-file>
 Global options:
   -h [ --help ]                     print help message
   -i [ --interactive ] arg (=1)     disable/enable interactive mode
   -s [ --simulate-typing ] arg (=1) disable/enable simulating typing
-  --session-file                    script file to run.
+  -t [ --test ]                     run script in non-interactive mode and 
+                                    check for errors.
+  -p [ --pause ] arg (=0)           pause for given number of deciseconds (1/10
+                                    second).
+  --rand_pause_min arg (=1)         minimum pause time during simulated typing.
+  --rand_pause_max arg (=1)         maximum pause time during simulated typing.
+  --shell arg                       use shell instead of default.
+  -w [ --wait-chars ] arg           list of characters that will cause script 
+                                    to stop and wait for user to press enter.
+  --setup-command arg               setup command(s) that will be ran before 
+                                    the script.
+  --cleanup-command arg             cleanup command(s) that will be ran after 
+                                    the script.
+  --config arg                      config file with options to read.
+  --preview                         write script lines to a file before they 
+                                    are loaded.
+  --messenger arg                   the method to use for messages
+  --list-messengers                 list the supported messengers
+  --session-file arg                script file to run.
 
 
 This is a small utility for running guided shell scripts.
@@ -45,11 +63,10 @@ Control Commands:
 
 	interactive (on|off)      Turn interactive mode on/off.
 	simulate_typing (on|off)  Turn typing simulation mode on/off.
-	pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second).
+	pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second) after running each command.
 	passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.
 	stdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.
-	pause_min COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.
-	pause_max COUNT           Set minimum pause time (in # of tenths of a second) when simulating typing.
+	include "script.sh"       Include the contents of script.sh in this script.
 
 	Several short versions of each command are supported.
 	int   -> interactive
@@ -72,7 +89,10 @@ Keyboard Commands:
 
 	Various keyboard commands can be given in interactive mode to modify the normal flow of the script:
 
-		b : backup       go back one line in the script.		s : skip         skip current line in script.		p : passthrough  enable passthrough mode.
+		b : backup       go back one line in the script.
+		s : skip         skip current line in script.
+		p : passthrough  enable passthrough mode.
+		x : exit         stop the demo and exit. cleanup commands will still be ran.
 
 
 ```

@@ -99,12 +99,11 @@ void print_help( ostream& out )
                "\n"
                "\tVarious keyboard commands can be given in interactive mode to modify the normal flow of the script:\n"
                "\n"
-               "\t\tb : backup       go back one line in the script."
-               "\t\ts : skip         skip current line in script."
-               "\t\tp : passthrough  enable passthrough mode."
-               "\t\tx : exit         stop the demo and exit. cleanup commands will still be ran."
+               "\t\tb : backup       go back one line in the script.\n"
+               "\t\ts : skip         skip current line in script.\n"
+               "\t\tp : passthrough  enable passthrough mode.\n"
+               "\t\tx : exit         stop the demo and exit. cleanup commands will still be ran.\n"
                "\n"
-
             << endl;
 }
 
