@@ -5,7 +5,7 @@ vim file.txt
 iHi, this is a text file
 oThis is another line.
 ohow many lines can we
-actually put here?
+   actually put here?
 :wq
 # interactive on
 # pause 5

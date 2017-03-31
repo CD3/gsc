@@ -613,7 +613,7 @@ int main(int argc, char *argv[])
     {
       pfs << lines[i] << endl;
 
-      line = trim( lines[i] );
+      line = lines[i];
       // remove comment from line if it exists
       line_loaded=false;
       
