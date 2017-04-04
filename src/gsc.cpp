@@ -265,14 +265,14 @@ int main(int argc, char *argv[])
     ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
     ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
     ("test,t"            , "run script in non-interactive mode and check for errors.")
-    ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second).")
+    ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second) before and after a line is loaded.")
     ("rand_pause_min"    , po::value<int>()->default_value(1),     "minimum pause time during simulated typing.")
     ("rand_pause_max"    , po::value<int>()->default_value(1),     "maximum pause time during simulated typing.")
     ("shell"             , po::value<string>(), "use shell instead of default.")
     ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
     ("setup-command"     , po::value<vector<string>>()->composing(), "setup command(s) that will be ran before the script.")
     ("cleanup-command"   , po::value<vector<string>>()->composing(), "cleanup command(s) that will be ran after the script.")
-    ("config"            , po::value<string>(), "config file with options to read.")
+    ("config"            , po::value<vector<string>>()->composing(), "config file(s) with options to read.")
     ("preview"           , "write script lines to a file before they are loaded.")
     ("messenger"         , po::value<string>(), "the method to use for messages")
     ("list-messengers"   , "list the supported messengers")
@@ -288,18 +288,20 @@ int main(int argc, char *argv[])
 
   string configfn;
 
-  // read options from config file option
+  // read options from config files
   if(vm.count("config"))
   {
-    configfn = vm["config"].as<string>();
-    if(!fileExists(configfn))
-      fail("Config file does not exists ("+configfn+")");
+    for( auto &configfn : vm["config"].as<vector<string>>() )
+    {
+      if(!fileExists(configfn))
+        fail("Config file does not exists ("+configfn+")");
 
-    ifstream ifs(configfn.c_str());
-    po::store(po::parse_config_file(ifs, options), vm);
-    po::notify(vm);
+      ifstream ifs(configfn.c_str());
+      po::store(po::parse_config_file(ifs, options), vm);
+      po::notify(vm);
+    }
   }
-  // read options from local config file if it exits
+  // read options from local config file if it exists
   configfn = ".gscrc";
   if(fileExists(configfn))
   {
@@ -307,7 +309,7 @@ int main(int argc, char *argv[])
     po::store(po::parse_config_file(ifs, options), vm);
     po::notify(vm);
   }
-  // read options from local config file if it exits
+  // read options from user config file if it exists
   if( getenv("HOME") != NULL )
   {
     configfn = string(getenv("HOME"))+"/.gscrc";
@@ -656,6 +658,7 @@ int main(int argc, char *argv[])
       // after line is loaded...
       #include "handle_interactive_commands.h"
 
+      pause( pause_time );
       write(masterfd, "\r", 1);
       pause( pause_time );
     }
