@@ -15,7 +15,7 @@ to be executed, and then press `<Enter>` to execute the command and see its outp
 ## Usage
 
 ```
-Usage: gsc [options] <session-file>
+Usage: ./build/gsc [options] <session-file>
 Global options:
   -h [ --help ]                     print help message
   -i [ --interactive ] arg (=1)     disable/enable interactive mode
@@ -23,7 +23,7 @@ Global options:
   -t [ --test ]                     run script in non-interactive mode and 
                                     check for errors.
   -p [ --pause ] arg (=0)           pause for given number of deciseconds (1/10
-                                    second).
+                                    second) before and after a line is loaded.
   --rand_pause_min arg (=1)         minimum pause time during simulated typing.
   --rand_pause_max arg (=1)         maximum pause time during simulated typing.
   --shell arg                       use shell instead of default.
@@ -33,7 +33,7 @@ Global options:
                                     the script.
   --cleanup-command arg             cleanup command(s) that will be ran after 
                                     the script.
-  --config arg                      config file with options to read.
+  --config arg                      config file(s) with options to read.
   --preview                         write script lines to a file before they 
                                     are loaded.
   --messenger arg                   the method to use for messages
@@ -63,14 +63,16 @@ Control Commands:
 
 	interactive (on|off)      Turn interactive mode on/off.
 	simulate_typing (on|off)  Turn typing simulation mode on/off.
-	pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second) after running each command.
+	keysym (on|off)           Turn keysym mode on/off.
 	passthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.
+	pause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second) after running each command.
 	stdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.
 	include "script.sh"       Include the contents of script.sh in this script.
 
 	Several short versions of each command are supported.
 	int   -> interactive
 	sim   -> simulate_typing
+	key   -> keysym
 	pass  -> passthrough
 
 	Modes:
@@ -81,6 +83,11 @@ Control Commands:
 		typing simulation mode     Characters are loaded into the command line one at a time with a short pause between each to
 		                           simulate typing. This is useful in demos to give your audience time to process the command
 		                           you are demonstrating.
+		keysym mode                Keysym codes are read from the script file and sent to the current window (requires xdo). This allows
+		                           tools that display key presses (such as screenkey) to be used with the demo. The script file format is
+		                           different in this mode. Rather than each character on the line being passed to the terminal, keysym
+		                           codes are written out, separated by spaces. gsc pauses at the end of each line, but does not send a 
+		                           return character to the terminal. Return characters must be sent explicitly (with the 'Return' keysym).
 		passthrough mode           The script is paused and input is taken from the user. This is useful if you need to enter a password
 		                           or want to run a few extra commands in the middle of a script.
 
