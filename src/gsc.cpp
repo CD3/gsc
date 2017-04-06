@@ -31,6 +31,12 @@ namespace po = boost::program_options;
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+#if USE_XDO
+extern "C" {
+#include <xdo.h>
+}
+#endif
+
 using namespace std;
 
 
@@ -72,8 +78,9 @@ void print_help( ostream& out )
                "\n"
                "\tinteractive (on|off)      Turn interactive mode on/off.\n"
                "\tsimulate_typing (on|off)  Turn typing simulation mode on/off.\n"
-               "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second) after running each command.\n"
+               "\tkeysym (on|off)           Turn keysym mode on/off.\n"
                "\tpassthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
+               "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second) after running each command.\n"
                "\tstdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
                "\tinclude \"script.sh\"       Include the contents of script.sh in this script.\n"
                "\n"
@@ -81,6 +88,7 @@ void print_help( ostream& out )
                "\n"
                "\tint   -> interactive\n"
                "\tsim   -> simulate_typing\n"
+               "\tkey   -> keysym\n"
                "\tpass  -> passthrough\n"
                "\n"
                "\tModes:\n"
@@ -91,6 +99,11 @@ void print_help( ostream& out )
                "\t\ttyping simulation mode     Characters are loaded into the command line one at a time with a short pause between each to\n"
                "\t\t                           simulate typing. This is useful in demos to give your audience time to process the command\n"
                "\t\t                           you are demonstrating.\n"
+               "\t\tkeysym mode                Keysym codes are read from the script file and sent to the current window (requires xdo). This allows\n"
+               "\t\t                           tools that display key presses (such as screenkey) to be used with the demo. The script file format is\n"
+               "\t\t                           different in this mode. Rather than each character on the line being passed to the terminal, keysym\n"
+               "\t\t                           codes are written out, separated by spaces. gsc pauses at the end of each line, but does not send a \n"
+               "\t\t                           return character to the terminal. Return characters must be sent explicitly (with the 'Return' keysym).\n"
                "\t\tpassthrough mode           The script is paused and input is taken from the user. This is useful if you need to enter a password\n"
                "\t\t                           or want to run a few extra commands in the middle of a script.\n"
                "\n"
@@ -239,6 +252,32 @@ vector<string> load_script( string filename )
 
   return lines;
 }
+
+void passthrough_char(int masterfd)
+{
+  char input[2];
+  input[1] = 0; // null byte
+  if( read(0, input, 1) > 0 )
+  {
+    if( (int)input[0] == 10 )
+      input[0] = '\r'; // replace returns with \r
+    write(masterfd, input, 1 ); 
+  }
+}
+// passthrough mode
+void passthrough( int masterfd )
+{
+  char input[2];
+  input[1] = 0; // null byte
+  // read from standard input until EOF (Ctl-D)
+  while( read(0, input, 1) > 0 && input[0] != 4)
+  {
+    if( (int)input[0] == 10 )
+      input[0] = '\r'; // replace returns with \r
+    write(masterfd, input, 1 ); 
+  }
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -577,6 +616,7 @@ int main(int argc, char *argv[])
     int i, j;
 
 
+
     if( vm.count("setup-command") )
     {
     // run setup commands
@@ -604,11 +644,20 @@ int main(int argc, char *argv[])
     if( vm.count("preview") )
       pfs.open(".gsc-preview");
 
-    bool simulate_typing = true;
-    bool interactive     = true;
+    // modes
+    bool simulate_typing_mode = true;
+    bool interactive_mode     = true;
+    bool keysym_mode          = false;
+
     bool line_loaded;
     bool exit = false;
 
+
+#ifdef USE_XDO
+    // setup xdo for sending key press events
+    xdo_t *xdo = xdo_new(NULL);
+    char xdo_buffer[BUFSIZ];
+#endif
 
     for( i = 0; i < lines.size(); i++)
     {
@@ -644,24 +693,56 @@ int main(int argc, char *argv[])
         break;
 
       linep = line.c_str();
-      for( j = 0; j < line.size(); j++)
+      if(keysym_mode)
       {
-        write(masterfd, linep+j, 1);
-        if(sflg && simulate_typing)
-          rand_pause();
-        if( iflg && interactive && strchr(vm["wait-chars"].as<string>().c_str(), linep[j]) != NULL )
-          nc = read(0, input, BUFSIZ);
+#ifdef USE_XDO
+        strcpy(xdo_buffer, linep);
+        char* token = strtok(xdo_buffer, " ");
+        input[1] = 0;
+        while(token)
+        {
+          // send keypress events to current window
+          xdo_send_keysequence_window(xdo, CURRENTWINDOW, token, 0);
+          if(sflg && simulate_typing_mode)
+            rand_pause();
+          // now read the keypress from input
+          passthrough_char(masterfd);
+          token = strtok(NULL, " ");
+        }
+#else
+        throw std::runtime_error("Cannot enter "keysym mode". gsc was not compiled with libxdo.");
+#endif
+      }
+      else
+      {
+        for( j = 0; j < line.size(); j++)
+        {
 
+          write(masterfd, linep+j, 1);
+          if(sflg && simulate_typing_mode)
+            rand_pause();
+          if( iflg && interactive_mode && strchr(vm["wait-chars"].as<string>().c_str(), linep[j]) != NULL )
+            nc = read(0, input, BUFSIZ);
+
+        }
       }
       line_loaded=true;
 
       // after line is loaded...
       #include "handle_interactive_commands.h"
 
-      pause( pause_time );
+      pause( pause_time ); // pause before and after hitting "enter"
+      if(!keysym_mode)
+      {
       write(masterfd, "\r", 1);
+      }
       pause( pause_time );
     }
+
+#ifdef USE_XDO
+    // cleanup key press event sender
+    xdo_free(NULL);
+#endif
 
     // close preview file
     pfs << "DONE" << endl;
@@ -669,7 +750,7 @@ int main(int argc, char *argv[])
 
     // wait for the user before exiting unless the exit command was given
     // or we are in non-interactive mode
-    if(iflg && interactive && !exit)
+    if(iflg && interactive_mode && !exit)
       nc = read(0, input, BUFSIZ);
 
     if( vm.count("cleanup-command") )

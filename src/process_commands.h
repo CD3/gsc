@@ -28,6 +28,8 @@ if( tok == "pass" )
   tok = "passthrough";
 if( tok == "mess" )
   tok = "message";
+if( tok == "key" )
+  tok = "keysym";
 
 
 #define get_arg(n,d) \
@@ -40,17 +42,17 @@ if( tok == "simulate_typing" )
 {
   get_arg(1,"on");
   if(tok == "off")
-    simulate_typing = false;
+    simulate_typing_mode = false;
   if(tok == "on")
-    simulate_typing = true;
+    simulate_typing_mode = true;
 }
 if( tok == "interactive" )
 {
   get_arg(1,"on");
   if(tok == "off")
-    interactive = false;
+    interactive_mode = false;
   if(tok == "on")
-    interactive = true;
+    interactive_mode = true;
 }
 if( tok == "pause" )
 {
@@ -60,13 +62,7 @@ if( tok == "pause" )
 }
 if( tok == "passthrough" )
 {
-  input[1] = 0;
-  while( rc = read(0, input, 1) > 0 && input[0] != 4)
-  {
-    if( (int)input[0] == 10 )
-      input[0] = '\r'; // replace returns with \r
-    write(masterfd, input, 1 ); 
-  }
+  passthrough(masterfd);
 }
 if( tok == "stdout" )
 {
@@ -80,6 +76,14 @@ if( tok == "message" )
 {
   message( commandstr );
 }
+if( tok == "keysym" )
+{
+  get_arg(1,"on");
+  if(tok == "off")
+    keysym_mode = false;
+  if(tok == "on")
+    keysym_mode = true;
+}
 
 
 
@@ -90,6 +94,7 @@ if( tok == "b" ) // back
   {
     // delete line and repeat.
     // user can give another back command if they want
+    // to go to previous line
     char c = 0x7f;
     for(j = 0; j < line.size(); j++)
       write(masterfd, &c, 1);
@@ -120,13 +125,7 @@ if( tok == "s" ) // skip
 
 if( tok == "p" ) // passthrough
 {
-  input[1] = 0;
-  while( rc = read(0, input, 1) > 0 && input[0] != 4)
-  {
-    if( (int)input[0] == 10 )
-      input[0] = '\r'; // replace returns with \r
-    write(masterfd, input, 1 ); 
-  }
+  passthrough(masterfd);
 }
 
 if( tok == "x" ) // exit

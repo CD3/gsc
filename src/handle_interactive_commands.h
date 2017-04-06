@@ -1,4 +1,4 @@
-if(iflg && interactive)
+if(iflg && interactive_mode)
 {
   nc = read(0, input, BUFSIZ);
   input[nc] = 0;
