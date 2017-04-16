@@ -710,7 +710,7 @@ int main(int argc, char *argv[])
           token = strtok(NULL, " ");
         }
 #else
-        throw std::runtime_error("Cannot enter "keysym mode". gsc was not compiled with libxdo.");
+        throw std::runtime_error("Cannot enter \"keysym mode\". gsc was not compiled with libxdo.");
 #endif
       }
       else
