@@ -15,7 +15,7 @@ to be executed, and then press `<Enter>` to execute the command and see its outp
 ## Usage
 
 ```
-Usage: ./build/gsc [options] <session-file>
+Usage: gsc [options] <session-file>
 Global options:
   -h [ --help ]                     print help message
   -i [ --interactive ] arg (=1)     disable/enable interactive mode
@@ -100,6 +100,7 @@ Keyboard Commands:
 		s : skip         skip current line in script.
 		p : passthrough  enable passthrough mode.
 		x : exit         stop the demo and exit. cleanup commands will still be ran.
+
 
 
 ```
