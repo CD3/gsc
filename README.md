@@ -12,6 +12,30 @@ It is similar to `script`, but you actually generate the terminal output live an
 This is very useful for giving command line demonstrations. You can load each line of the script into the terminal, discuss the command that is about
 to be executed, and then press `<Enter>` to execute the command and see its output.
 
+## Installing
+
+`gsc` uses `cmake` to manage build configurations. To build and install, run
+the following commands
+
+```
+> git clone https://github.com/CD3/gsc
+> cd gsc
+> mkdir build
+> cd build
+> cmake ..
+> make
+> sudo make install
+```
+
+This will compile the `gsc` executable and copy it to the install directory. The
+default install directory is is `/usr/local/bin`. Use the `-DCMAKE_INSTALL_PREFIX` option
+to change this. For example, to install into a sub-directory of your home directory
+
+```
+> cmake -DCMAKE_INSTALL_PREFIX=/home/username/install ..
+```
+
+
 ## Usage
 
 ```
