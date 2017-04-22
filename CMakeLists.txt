@@ -27,3 +27,5 @@ add_definitions("-std=c++11")
 
 add_executable( gsc ./src/gsc.cpp )
 target_link_libraries( gsc ${LIBS} )
+
+install( TARGETS gsc DESTINATION bin )
