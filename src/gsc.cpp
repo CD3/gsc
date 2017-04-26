@@ -659,7 +659,19 @@ int main(int argc, char *argv[])
     char xdo_buffer[BUFSIZ];
 #endif
 
+    // check to see if there is a "start" command in the script
+    int starti = 0;
     for( i = 0; i < lines.size(); i++)
+    {
+      if( boost::regex_search( lines[i], comment_line_regex ) )
+      {
+        commandstr = boost::regex_replace( lines[i], comment_line_regex, "" );
+        commandstr = trim(commandstr);
+        if( commandstr == "start" )
+          starti = i;
+      }
+    }
+    for( i = starti; i < lines.size(); i++)
     {
       pfs << lines[i] << endl;
 
