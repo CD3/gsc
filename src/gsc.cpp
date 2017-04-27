@@ -325,6 +325,22 @@ int main(int argc, char *argv[])
   po::store(po::command_line_parser(argc, argv).options(options).positional(args).run(), vm);
   po::notify(vm);
 
+
+  // Check arguments
+  bool iflg = vm["interactive"].as<bool>();
+  bool sflg = vm["simulate-typing"].as<bool>();
+  bool hflg = vm.count("help");
+
+  int pause_time = vm["pause"].as<int>();
+
+  if(hflg)
+  {
+    print_usage(string(argv[0]), cerr);
+    cout << options << endl;
+    print_help(cerr);
+    exit(0);
+  }
+
   string configfn;
 
   // read options from config files
@@ -362,12 +378,6 @@ int main(int argc, char *argv[])
 
 
 
-  bool iflg = vm["interactive"].as<bool>();
-  bool sflg = vm["simulate-typing"].as<bool>();
-  bool hflg = vm.count("help");
-
-  int pause_time = vm["pause"].as<int>();
-
   if(vm.count("test"))
   {
     iflg = false;
@@ -396,22 +406,18 @@ int main(int argc, char *argv[])
   }
 
 
-  // Check arguments
-  if(hflg)
+
+  if(!vm.count("session-file"))
   {
     print_usage(string(argv[0]), cerr);
-    cout << options << endl;
-    print_help(cerr);
+    cout << "run '" << argv[0] << " -h' to see help."<< endl;
     exit(1);
   }
-
-
   session_file = vm["session-file"].as<string>();
   if(!fileExists(session_file))
   {
     fail("Session file does not exists ("+session_file+")");
   }
-
 
   // create master side of the PTY
   masterfd = posix_openpt(O_RDWR);
