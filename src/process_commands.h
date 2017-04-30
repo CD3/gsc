@@ -30,6 +30,8 @@ if( tok == "mess" )
   tok = "message";
 if( tok == "key" )
   tok = "keysym";
+if( tok == "sys" )
+  tok = "system";
 
 
 #define get_arg(n,d) \
@@ -83,6 +85,11 @@ if( tok == "keysym" )
     keysym_mode = false;
   if(tok == "on")
     keysym_mode = true;
+}
+if( tok == "system" )
+{
+  if( system(NULL) )
+    system(commandstr.c_str());
 }
 
 
