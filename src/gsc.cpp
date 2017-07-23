@@ -2,51 +2,9 @@
  * This program is based off of the code listed in a pty tutorial at http://rachid.koucha.free.fr/tech_corner/pty_pdip.html
  */
 
-#define _XOPEN_SOURCE 600
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "gsc.h"
 
-#include <sys/select.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#include <signal.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
-#include <termios.h>
-
-#include <string>
-#include <vector>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-
-#include <boost/regex.hpp>
-
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
-
-#if USE_XDO
-extern "C" {
-#include <xdo.h>
-}
-#endif
-
-using namespace std;
-
-
-bool fileExists(const string& filename)
-{
-  struct stat buf;
-  if (stat(filename.c_str(), &buf) != -1)
-    return true;
-  return false;
-}
+using namespace gsc;
 
 void print_usage(string prog, ostream& out)
 {
@@ -120,164 +78,6 @@ void print_help( ostream& out )
             << endl;
 }
 
-inline string rtrim(
-  const string& s,
-  const string& delimiters = " \f\n\r\t\v" )
-{
-  auto pos = s.find_last_not_of( delimiters );
-  if( pos == string::npos )
-    return "";
-  return s.substr( 0, pos + 1 );
-}
-
-inline string ltrim(
-  const string& s,
-  const string& delimiters = " \f\n\r\t\v" )
-{
-  auto pos = s.find_last_not_of( delimiters );
-  if( pos == string::npos )
-    return "";
-  return s.substr( s.find_first_not_of( delimiters ) );
-}
-
-inline string trim(
-  const string& s,
-  const string& delimiters = " \f\n\r\t\v" )
-{
-  return ltrim( rtrim( s, delimiters ), delimiters );
-}
-
-void fail(string msg)
-{
-  cerr << "Error (" << errno << "): " << msg << endl;
-  exit(1);
-}
-
-void pause(long counts)
-{
-  // pause, by calling nanosleep, for a specified number of counts.
-  // one count is a tenth of a second.
-  long long dt = counts*1e8;
-  struct timespec t;
-  t.tv_sec  = dt/1000000000;
-  t.tv_nsec = dt%1000000000;
-  nanosleep(&t, NULL);
-
-  return;
-}
-
-int rand_pause_min = 1;
-int rand_pause_max = 1;
-void rand_pause()
-{
-  pause( rand_pause_min + (rand_pause_max-rand_pause_min)*(double)rand()/(double)RAND_MAX );
-}
-
-string messenger = "file";
-void message(string msg)
-{
-  if(messenger == "file")
-  {
-    ofstream out(".gsc-messages", ios_base::app);
-    out << msg << endl;
-    out.close();
-  }
-
-  if(messenger == "notify-send")
-  {
-    string cmd = "notify-send '"+msg+"'";
-    system(cmd.c_str());
-  }
-
-  if(messenger == "xmessage")
-  {
-    string cmd = "xmessage '"+msg+"'";
-    system(cmd.c_str());
-  }
-}
-
-string dirname( string path )
-{
-  string dir;
-
-  std::size_t found = path.find_last_of("/\\");
-  if(found == string::npos)
-    dir = ".";
-  else
-    dir = path.substr(0,found);
-
-  return dir;
-}
-
-string basename( string path )
-{
-  string filename;
-
-  std::size_t found = path.find_last_of("/\\");
-  filename = path.substr(found+1);
-
-  return filename;
-}
-
-string path_join( string a, string b )
-{
-  return a+'/'+b;
-}
-
-vector<string> load_script( string filename )
-{
-  if(!fileExists(filename))
-    fail("Script file does not exists ("+filename+")");
-  vector<string> lines;
-  string line;
-  ifstream in( filename.c_str() );
-
-  boost::regex include_statement("^[ \t]*#[ \t]*include[ \t]+([^ ]*)");
-  boost::smatch match;
-
-  while(getline(in, line))
-  {
-    if( boost::regex_search( line, match, include_statement ) && match.size() > 1 )
-    {
-      string fn = trim(match.str(1),"\"" );
-      auto llines = load_script( path_join(dirname(filename),fn) );
-      lines.insert(lines.end(), llines.begin(), llines.end());
-    }
-    else
-    {
-      lines.push_back( line );
-    }
-  }
-  in.close();
-
-  return lines;
-}
-
-void passthrough_char(int masterfd)
-{
-  char input[2];
-  input[1] = 0; // null byte
-  if( read(0, input, 1) > 0 )
-  {
-    if( (int)input[0] == 10 )
-      input[0] = '\r'; // replace returns with \r
-    write(masterfd, input, 1 ); 
-  }
-}
-// passthrough mode
-void passthrough( int masterfd )
-{
-  char input[2];
-  input[1] = 0; // null byte
-  // read from standard input until EOF (Ctl-D)
-  while( read(0, input, 1) > 0 && input[0] != 4)
-  {
-    if( (int)input[0] == 10 )
-      input[0] = '\r'; // replace returns with \r
-    write(masterfd, input, 1 ); 
-  }
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -316,6 +116,7 @@ int main(int argc, char *argv[])
     ("messenger"         , po::value<string>(), "the method to use for messages")
     ("list-messengers"   , "list the supported messengers")
     ("session-file"      , po::value<string>(), "script file to run.")
+    ("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
     ;
 
   po::positional_options_description args;
@@ -376,7 +177,18 @@ int main(int argc, char *argv[])
     }
   }
 
-
+  Context context;
+  if( vm.count("context-variable") )
+  {
+    for( auto &str : vm["context-variable"].as<std::vector<std::string>>() )
+    {
+      std::vector<std::string> toks;
+      boost::split( toks, str, boost::is_any_of("=") );
+      if(toks.size() < 2)
+        throw std::runtime_error("Could not parse "+str+" into key/value pair.");
+      context[toks[0]] = toks[1];
+    }
+  }
 
   if(vm.count("test"))
   {
@@ -644,7 +456,7 @@ int main(int argc, char *argv[])
 
 
     // Read in session file.
-    lines = load_script( vm["session-file"].as<string>() );
+    lines = load_script( vm["session-file"].as<string>(), context );
     // setup preview file
     ofstream pfs;
     if( vm.count("preview") )
@@ -691,7 +503,7 @@ int main(int argc, char *argv[])
         commandstr = boost::regex_replace( line, comment_line_regex, "" );
         commandstr = trim(commandstr);
         commandtoks = boost::split( commandtoks, commandstr, boost::is_any_of(" \t,") );
-        #include "process_commands.h"
+        #include "macros/process_commands.h"
       }
 
       // skip comments (could also use an else statement)
@@ -706,7 +518,7 @@ int main(int argc, char *argv[])
 
       // require user command before *and* after a line is loaded.
       // before line is loaded...
-      #include "handle_interactive_commands.h"
+      #include "macros/handle_interactive_commands.h"
       if(exit)
         break;
 
@@ -746,8 +558,8 @@ int main(int argc, char *argv[])
       }
       line_loaded=true;
 
-      // after line is loaded...
-      #include "handle_interactive_commands.h"
+      // after line is loaed...
+      #include "macros/handle_interactive_commands.h"
 
       pause( pause_time ); // pause before and after hitting "enter"
       if(!keysym_mode)

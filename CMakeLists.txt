@@ -1,5 +1,7 @@
 cmake_minimum_required( VERSION 2.8 )
 
+project(gsc)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules")
 
 
@@ -29,3 +31,5 @@ add_executable( gsc ./src/gsc.cpp )
 target_link_libraries( gsc ${LIBS} )
 
 install( TARGETS gsc DESTINATION bin )
+
+add_subdirectory(testing)
