@@ -64,6 +64,9 @@ void print_help( ostream& out )
                "\t\t                           return character to the terminal. Return characters must be sent explicitly (with the 'Return' keysym).\n"
                "\t\tpassthrough mode           The script is paused and input is taken from the user. This is useful if you need to enter a password\n"
                "\t\t                           or want to run a few extra commands in the middle of a script.\n"
+               "\t\timplicit return mode       A return character is sent to the shell after before the next script line is loaded so scripts to not need \n"
+               "\t\t                           to contain explicit return characters. However, sometimes this is not desired (while using vim to edit a\n"
+               "\t\t                           file for example), and it can be disabled.\n"
                "\n"
                "\n"
                "Keyboard Commands:\n"
@@ -466,6 +469,7 @@ int main(int argc, char *argv[])
     bool simulate_typing_mode = true;
     bool interactive_mode     = true;
     bool keysym_mode          = false;
+    bool implicit_return_mode = true;
 
     bool line_loaded;
     bool exit = false;
@@ -564,7 +568,8 @@ int main(int argc, char *argv[])
       pause( pause_time ); // pause before and after hitting "enter"
       if(!keysym_mode)
       {
-      write(masterfd, "\r", 1);
+        if(implicit_return_mode)
+          write(masterfd, "\r", 1);
       }
       pause( pause_time );
     }

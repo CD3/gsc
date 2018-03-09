@@ -22,6 +22,8 @@ if( tok == "sim" )
   tok = "simulate_typing";
 if( tok == "int" )
   tok = "interactive";
+if( tok == "ret" )
+  tok = "implicit_return";
 if( tok == "delay" )
   tok = "pause";
 if( tok == "pass" )
@@ -55,6 +57,14 @@ if( tok == "interactive" )
     interactive_mode = false;
   if(tok == "on")
     interactive_mode = true;
+}
+if( tok == "implicit_return" )
+{
+  get_arg(1,"on");
+  if(tok == "off")
+    implicit_return_mode = false;
+  if(tok == "on")
+    implicit_return_mode = true;
 }
 if( tok == "pause" )
 {
