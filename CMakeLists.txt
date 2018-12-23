@@ -1,34 +1,32 @@
-cmake_minimum_required( VERSION 2.8 )
+cmake_minimum_required( VERSION 3.10 )
 
 project(gsc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules")
 
 
-# The boost command line argument parser.
-find_package( Boost COMPONENTS program_options REQUIRED)
-include_directories( ${Boost_INCLUDE_DIRS} )
-set( Boost_LIBS ${Boost_LIBS} ${Boost_LIBRARIES} )
+# Boost libraries
+set(Boost_USE_STATIC_LIBS ON)
+find_package( Boost REQUIRED COMPONENTS program_options filesystem log )
 
-find_package( Boost COMPONENTS regex REQUIRED)
-include_directories( ${Boost_INCLUDE_DIRS} )
-set( Boost_LIBS ${Boost_LIBS} ${Boost_LIBRARIES} )
+add_library( libgsc )
+target_sources(
+libgsc
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/gsc.cpp>
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/gsc.h>
+)
+target_include_directories( libgsc
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
+)
+target_link_libraries( libgsc PUBLIC Boost::boost Boost::program_options Boost::filesystem Boost::log )
+set_target_properties( libgsc PROPERTIES CXX_STANDARD 17 )
 
-set( LIBS ${LIBS} ${Boost_LIBS} )
+add_executable( gsc $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp> )
+target_link_libraries( gsc libgsc )
 
-find_package( xdo )
-if(XDO_FOUND)
-  set( LIBS ${LIBS} ${XDO_LIBRARIES} )
-  include_directories( ${XDO_INCLUDE_DIRS} )
-  add_definitions("-DUSE_XDO")
-endif(XDO_FOUND)
-
-
-add_definitions("-std=c++11")
-
-
-add_executable( gsc ./src/gsc.cpp )
-target_link_libraries( gsc ${LIBS} )
 
 install( TARGETS gsc DESTINATION bin )
 

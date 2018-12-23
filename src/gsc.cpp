@@ -1,617 +1,407 @@
+#include <regex>
+#include <string>
+#include <chrono>
+#include <thread>
+#include <iostream>
+
+#include <boost/log/trivial.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem.hpp>
+
+#include <sys/poll.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#include "./gsc.h"
+
+
 /**
- * This program is based off of the code listed in a pty tutorial at http://rachid.koucha.free.fr/tech_corner/pty_pdip.html
+ * Render a template string using a context
  */
-
-#include "gsc.h"
-
-using namespace gsc;
-
-void print_usage(string prog, ostream& out)
+std::string render( std::string templ, const Context& context, std::string stag, std::string etag )
 {
-  cout <<  "Usage: " << prog << " [options] <session-file>" << endl;
+  for( auto &c : context )
+  {
+    std::string pat = stag+c.first+etag;
+    std::regex re(pat);
+    templ = std::regex_replace( templ, re, c.second);
+  }
+
+  return templ;
 }
 
-void print_help( ostream& out )
+void SessionScript::load(const std::string& filename)
 {
-  cout << "\n"
-               "This is a small utility for running guided shell scripts.\n"
-               "Lines from the script are loaded, but will not be executed\n"
-               "until the user presses <Enter>. This is useful if you need to\n"
-               "give a command line demo, but don't want to run the demo 'live'.\n"
-               "\n"
-               "Input lines are read from a script file and passed to a pseudoterminal.\n"
-               "Comment lines (beginning with '#' are not passed to the terminal,\n"
-               "but are parsed for control commands (see below).\n"
-               "\n"
-               "\n"
-               "Control Commands:\n"
-               "\n"
-               "\tThe behavior of `gsc` can be changed on the fly with control commands.\n"
-               "\tControl commands are given in comment lines (lines beginning with a '#') of the session file.\n"
-               "\tFor example, this line will disable interactive mode (commands will be loaded and executed without user input).\n"
-               "\n"
-               "\t   # interactive off\n"
-               "\n"
-               "\tSupported Commands:\n"
-               "\n"
-               "\tinteractive (on|off)      Turn interactive mode on/off.\n"
-               "\tsimulate_typing (on|off)  Turn typing simulation mode on/off.\n"
-               "\tkeysym (on|off)           Turn keysym mode on/off.\n"
-               "\tpassthrough               Enable passthrough mode. All user input will be passed directly to the terminal until Ctrl-D.\n"
-               "\tpause COUNT               Pause for COUNT tenths of a second ('pause 5' will pause for one half second) after running each command.\n"
-               "\tstdout (on|off)           Turn stdout of the shell process on/off. This allows you to run some commands silently.\n"
-               "\tinclude \"script.sh\"       Include the contents of script.sh in this script.\n"
-               "\n"
-               "\tSeveral short versions of each command are supported."
-               "\n"
-               "\tint   -> interactive\n"
-               "\tsim   -> simulate_typing\n"
-               "\tkey   -> keysym\n"
-               "\tpass  -> passthrough\n"
-               "\n"
-               "\tModes:\n"
-               "\n"
-               "\t\t`gsc` supports different modes of operation. Modes are not mutually exclusive, more than one mode can be active at one time.\n"
-               "\n"
-               "\t\tinteractive mode           The user must hit <Enter> to load and execute commands.\n"
-               "\t\ttyping simulation mode     Characters are loaded into the command line one at a time with a short pause between each to\n"
-               "\t\t                           simulate typing. This is useful in demos to give your audience time to process the command\n"
-               "\t\t                           you are demonstrating.\n"
-               "\t\tkeysym mode                Keysym codes are read from the script file and sent to the current window (requires xdo). This allows\n"
-               "\t\t                           tools that display key presses (such as screenkey) to be used with the demo. The script file format is\n"
-               "\t\t                           different in this mode. Rather than each character on the line being passed to the terminal, keysym\n"
-               "\t\t                           codes are written out, separated by spaces. gsc pauses at the end of each line, but does not send a \n"
-               "\t\t                           return character to the terminal. Return characters must be sent explicitly (with the 'Return' keysym).\n"
-               "\t\tpassthrough mode           The script is paused and input is taken from the user. This is useful if you need to enter a password\n"
-               "\t\t                           or want to run a few extra commands in the middle of a script.\n"
-               "\t\timplicit return mode       A return character is sent to the shell after before the next script line is loaded so scripts to not need \n"
-               "\t\t                           to contain explicit return characters. However, sometimes this is not desired (while using vim to edit a\n"
-               "\t\t                           file for example), and it can be disabled.\n"
-               "\n"
-               "\n"
-               "Keyboard Commands:\n"
-               "\n"
-               "\tVarious keyboard commands can be given in interactive mode to modify the normal flow of the script:\n"
-               "\n"
-               "\t\tb : backup       go back one line in the script.\n"
-               "\t\ts : skip         skip current line in script.\n"
-               "\t\tp : passthrough  enable passthrough mode.\n"
-               "\t\tx : exit         stop the demo and exit. cleanup commands will still be ran.\n"
-               "\n"
-            << endl;
+  if(!boost::filesystem::exists(filename) || boost::filesystem::is_directory(filename))
+    throw std::runtime_error("No such file "+filename);
+
+  std::ifstream in(filename.c_str());
+
+  std::string line;
+  while( std::getline(in,line) )
+  {
+    lines.push_back(::render(line, this->context,this->render_stag, this->render_etag));
+  }
+  in.close();
+}
+void SessionScript::render()
+{
+  std::transform( this->lines.begin(), this->lines.end(), this->lines.begin(), [this](std::string& s){ return ::render(s,this->context,this->render_stag, this->render_etag); } );
 }
 
-
-int main(int argc, char *argv[])
+Session::Session(std::string filename, std::string shell)
 {
-  int masterfd, slavefd;  // master and slave file descriptors
-  char *slavedevice; // slave filename
-  pid_t slavePID, outputPID; // PIDs for calls to fork.
-  int outputPipe[2];
-  struct termios orig_term_settings; // Saved terminal settings
-  struct termios new_term_settings; // Current terminal settings
-  struct winsize window_size; // the terminal window size
-
-  int rc; // return codes for C functions
-  int nc; // num chars
-  char input[BUFSIZ];     // input buffer
-  string str;     // string for misc uses
-  string session_file;
+  this->filename = filename;
+  this->shell = shell;
+  if(this->shell == "")
+    this->shell = getenv("SHELL") == NULL ? "sh" : getenv("SHELL");
+  this->init_shell_args();
 
 
-  // OPTIONS
 
-  po::options_description options("Global options");
-  options.add_options()
-    ("help,h"            , "print help message")
-    ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
-    ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
-    ("test,t"            , "run script in non-interactive mode and check for errors.")
-    ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second) before and after a line is loaded.")
-    ("rand_pause_min"    , po::value<int>()->default_value(1),     "minimum pause time during simulated typing.")
-    ("rand_pause_max"    , po::value<int>()->default_value(1),     "maximum pause time during simulated typing.")
-    ("shell"             , po::value<string>(), "use shell instead of default.")
-    ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
-    ("setup-command"     , po::value<vector<string>>()->composing(), "setup command(s) that will be ran before the script.")
-    ("cleanup-command"   , po::value<vector<string>>()->composing(), "cleanup command(s) that will be ran after the script.")
-    ("config"            , po::value<vector<string>>()->composing(), "config file(s) with options to read.")
-    ("preview"           , "write script lines to a file before they are loaded.")
-    ("messenger"         , po::value<string>(), "the method to use for messages")
-    ("list-messengers"   , "list the supported messengers")
-    ("session-file"      , po::value<string>(), "script file to run.")
-    ("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
-    ;
+  int rc;
+  rc = tcgetattr(0,&terminal_settings);
+  if( rc == -1 )
+    throw std::runtime_error("Could not retrieve terminal settings on stdin file descriptor.");
 
-  po::positional_options_description args;
-  args.add("session-file", 1);
+  state.terminal_settings = terminal_settings;
 
-  po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).options(options).positional(args).run(), vm);
-  po::notify(vm);
+  // open a pseudoterminal
+  state.masterfd = posix_openpt(O_RDWR);
+  // setup the save device
+  if( state.masterfd < 0 ) throw std::runtime_error("There was a problem opening pty.");
+  BOOST_LOG_TRIVIAL(debug) << "Opened pseudoterminal.";
+  BOOST_LOG_TRIVIAL(debug) << "  Master device fd: "<<state.masterfd;
+  if( grantpt( state.masterfd ) != 0 ) throw std::runtime_error("Could not grant access to pty slave.");
+  if( unlockpt( state.masterfd ) != 0) throw std::runtime_error("Could not unlock slave pty device.");
+  state.slave_device_name = ptsname(state.masterfd);
+  if(state.slave_device_name == NULL) throw std::runtime_error("Could not get slave pty device name.");
+  BOOST_LOG_TRIVIAL(debug) << "  Slave device name: "<<state.slave_device_name;
 
+  state.slavePID = fork();
+  if( state.slavePID == -1 ) throw std::runtime_error("Could not fork child process.");
 
-  // Check arguments
-  bool iflg = vm["interactive"].as<bool>();
-  bool sflg = vm["simulate-typing"].as<bool>();
-  bool hflg = vm.count("help");
-
-  int pause_time = vm["pause"].as<int>();
-
-  if(hflg)
+  if(amChild())
   {
-    print_usage(string(argv[0]), cerr);
-    cout << options << endl;
-    print_help(cerr);
-    exit(0);
+    // child doesn't need masterfd
+    
+    BOOST_LOG_TRIVIAL(debug) << "Closing master fd.";
+    close(state.masterfd);
+    state.masterfd = -2;
+
+    BOOST_LOG_TRIVIAL(debug) << "Creating new session for child.";
+    if( setsid() == -1 ) throw std::runtime_error("Could not start new session.");
+    BOOST_LOG_TRIVIAL(debug) << "Opening slave device in child to act as controlling terminal.";
+    state.slavefd = open(state.slave_device_name,O_RDWR);
+    if(state.slavefd == -1) throw std::runtime_error("Could not open slave device file.");
+    BOOST_LOG_TRIVIAL(debug) << "Connecting child stdin, stdou, and stderr to slave device.";
+    if( dup2( state.slavefd, 0 ) != 0 ) throw std::runtime_error("Could not connect child stdin to slave device");
+    if( dup2( state.slavefd, 1 ) != 1 ) throw std::runtime_error("Could not connect child stdout to slave device");
+    if( dup2( state.slavefd, 2 ) != 2 ) throw std::runtime_error("Could not connect child stderr to slave device");
   }
 
-  string configfn;
-
-  // read options from config files
-  if(vm.count("config"))
+  if(state.slavefd > 0)
   {
-    for( auto &configfn : vm["config"].as<vector<string>>() )
+    BOOST_LOG_TRIVIAL(debug) << "Closing slave fd.";
+    close(state.slavefd);
+    state.slavefd = -2;
+  }
+
+  if(amChild())
+  {
+    // launch a shell in the child process
+    // need to generate a c-style array of strings
+    // to pass arguments to the shell
+    auto string2cstr = [](std::string &s)
     {
-      if(!fileExists(configfn))
-        fail("Config file does not exists ("+configfn+")");
-
-      ifstream ifs(configfn.c_str());
-      po::store(po::parse_config_file(ifs, options), vm);
-      po::notify(vm);
-    }
-  }
-  // read options from local config file if it exists
-  configfn = ".gscrc";
-  if(fileExists(configfn))
-  {
-    ifstream ifs(configfn.c_str());
-    po::store(po::parse_config_file(ifs, options), vm);
-    po::notify(vm);
-  }
-  // read options from user config file if it exists
-  if( getenv("HOME") != NULL )
-  {
-    configfn = string(getenv("HOME"))+"/.gscrc";
-    if(fileExists(configfn))
+      return const_cast<char*>(s.c_str());
+    };
+    std::vector<char*> argv;
+    argv.push_back( string2cstr(this->shell) );
+    std::transform( this->shell_args.begin(), this->shell_args.end(), std::back_inserter(argv), string2cstr );
+    argv.push_back( NULL ); // need to null terminate the array
+    BOOST_LOG_TRIVIAL(debug) << "Launching shell (" << this->shell <<") in child process with "<<argv.size()<<" element array for argv:";
+    for( auto &a : argv )
     {
-      ifstream ifs(configfn.c_str());
-      po::store(po::parse_config_file(ifs, options), vm);
-      po::notify(vm);
-    }
-  }
-
-  Context context;
-  if( vm.count("context-variable") )
-  {
-    for( auto &str : vm["context-variable"].as<std::vector<std::string>>() )
-    {
-      std::vector<std::string> toks;
-      boost::split( toks, str, boost::is_any_of("=") );
-      if(toks.size() < 2)
-        throw std::runtime_error("Could not parse "+str+" into key/value pair.");
-      context[toks[0]] = toks[1];
-    }
-  }
-
-  if(vm.count("test"))
-  {
-    iflg = false;
-    sflg = false;
-    pause_time = 1;
-  }
-
-  if( vm.count("rand_pause_min") )
-    rand_pause_min = vm["rand_pause_min"].as<int>();
-  if( vm.count("rand_pause_max") )
-    rand_pause_max = vm["rand_pause_max"].as<int>();
-
-  if( rand_pause_max < rand_pause_min )
-    rand_pause_max = rand_pause_min;
-  if( rand_pause_min > rand_pause_max )
-    rand_pause_min = rand_pause_max;
-
-  if( vm.count("messenger") )
-    messenger = vm["messenger"].as<string>();
-
-  if( vm.count("list-messengers") )
-  {
-    cout << "messenger: \n"
-         << "\t file\n"
-         ;
-  }
-
-
-
-  if(!vm.count("session-file"))
-  {
-    print_usage(string(argv[0]), cerr);
-    cout << "run '" << argv[0] << " -h' to see help."<< endl;
-    exit(1);
-  }
-  session_file = vm["session-file"].as<string>();
-  if(!fileExists(session_file))
-  {
-    fail("Session file does not exists ("+session_file+")");
-  }
-
-  // create master side of the PTY
-  masterfd = posix_openpt(O_RDWR);
-  if( masterfd < 0
-  ||  grantpt(masterfd) != 0
-  ||  unlockpt(masterfd) != 0
-  ||  (slavedevice = ptsname(masterfd)) == NULL)
-  {
-    fail("pty setup");
-  }
-
-  // get the current window size
-  ioctl( 0, TIOCGWINSZ, (char *)&window_size );
-
-
-  // Open the slave side ot the PTY
-  slavefd = open(slavedevice, O_RDWR);
-
-
-
-  // OK, we have three things that need to happen now.
-  //
-  // 1. a shell is executed and attached to to the slave device (i.e. its standard input/output/error are directed at the slave)
-  // 2. lines from the session file are read and then written to the masterfd.
-  // 3. ouput from the slave is read from the masterfd and written to stdout.
-  //
-  // So, we will do each of these in their own process.
-  
-  slavePID = 1;
-  outputPID = 1;
-
-  slavePID = fork();
-  if( slavePID == -1)
-    fail("fork slave proc");
-
-  if( slavePID != 0 ) // parent process gets child PID. child gets 0.
-  {
-    // we don't need the slavefd in this proc
-    close(slavefd);
-
-    // open a pipe that we will use to send commands to the output proc
-    if( pipe(outputPipe) == -1)
-      fail("output pipe open");
-
-    // create proc to do output
-    outputPID = fork();
-
-    if( outputPID == -1)
-      fail("fork output proc");
-  }
-
-
-
-  // OK, we have our 3 processes.
-  
-  if( slavePID == 0 ) // child that will run slave
-  {
-    // setup the slave to act as the controlling terminal for a shell
-
-    // Close the master side of the PTY
-    close(masterfd);
-
-    // Save the defaults parameters of the slave side of the PTY
-    rc = tcgetattr(slavefd, &orig_term_settings);
-
-    // Set RAW mode on slave side of PTY
-    new_term_settings = orig_term_settings;
-    cfmakeraw (&new_term_settings);
-    tcsetattr (slavefd, TCSANOW, &new_term_settings);
-
-    // The slave side of the PTY becomes the standard input and outputs of the child process
-    close(0); // Close standard input (current terminal)
-    close(1); // Close standard output (current terminal)
-    close(2); // Close standard error (current terminal)
-
-    dup(slavefd); // PTY becomes standard input (0)
-    dup(slavefd); // PTY becomes standard output (1)
-    dup(slavefd); // PTY becomes standard error (2)
-
-    // Now we can close the original file descriptor
-    close(slavefd);
-
-    // set the window size to match what it was when we started.
-    ioctl( 0, TIOCSWINSZ, (char *)&window_size );
-
-    // Make the current process a new session leader
-    setsid();
-
-    // As the child is a session leader, set the controlling terminal to be the slave side of the PTY
-    // (Mandatory for programs like the shell to make them manage their outputs correctly)
-    ioctl(0, TIOCSCTTY, 1);
-
-    // Start the shell
-    {
-      string shell;
-      if( vm.count("shell") )
-        shell = vm["shell"].as<string>();
+      if( a != NULL )
+        BOOST_LOG_TRIVIAL(debug) << "  " << a;
       else
-        shell = getenv("SHELL") == NULL ? "/bin/sh" : getenv("SHELL");
-      execl(shell.c_str(), strrchr(shell.c_str(), '/') + 1, "-i", (char *)0);
+        BOOST_LOG_TRIVIAL(debug) << "  NULL";
     }
-
-    // if we are here, there was an error
-    //
-    fail("execl");
+    execvp( this->shell.c_str(), argv.data() );
   }
 
 
 
-  if( outputPID == 0 ) // child that will write slaves stdout to actual stdout
+
+}
+
+Session::~Session()
+{
+  state.shutdown = true;
+  close(state.masterfd);
+  tcsetattr(0,TCSAFLUSH,&terminal_settings);
+}
+
+int Session::run()
+{
+  BOOST_LOG_TRIVIAL(debug) << "Beginning session run.";
+
+  // set terminal to raw mode
+  cfmakeraw(&(state.terminal_settings));
+  tcsetattr(0,TCSANOW,&(state.terminal_settings));
+
+  this->script.load( this->filename );
+  state.script_line_it = this->script.lines.begin();
+
+  
+  if(amParent())
   {
-    // setup output monitor on masterfd that will write slave output to stdout.
-    // we want to write anything we recieve to stdout
+    // create a thread to process output from the
+    // slave device.
+    std::thread slave_output_thread(&Session::process_slave_output,this);
+    // some vars for processing
+    // return codes, input chars, and output chars.
+    int rc;
+    char ch, ich, och;
 
-    // close the write end of the pipe
-    if(close(outputPipe[1]) == -1)
-      fail("closing output pipe write end");
-
-    fd_set fd_in;
-    bool talk = true;
-
-    while (1)
+    // process script and user input
+    for(; state.script_line_it != this->script.lines.end(); state.script_line_it++)
     {
-      FD_ZERO(&fd_in);
-      FD_SET(masterfd, &fd_in);
-      FD_SET(outputPipe[0], &fd_in);
-
-      rc = select(outputPipe[0]+1, &fd_in, NULL, NULL, NULL);
-      switch(rc)
-      {
-        case -1 : fprintf(stderr, "Error %d on select()\n", errno);
-                  exit(1);
-
-        default : // one or more file descriptors have input
-        {
-
-          // data on master side of PTY
-          // read and print to stdout
-          if (FD_ISSET(masterfd, &fd_in))
-          {
-            rc = read(masterfd, input, sizeof(input));
-            if (talk && rc > 0)
-              write(1, input, rc); // Write data on standard output
-          }
-
-          // data on our command pipe
-          if (FD_ISSET(outputPipe[0], &fd_in))
-          {
-            rc = read(outputPipe[0], input, sizeof(input));
-            if (rc > 0)
-            {
-              str = input;
-              if( str == "stdout off" )
-                talk = false;
-              if( str == "stdout on" )
-                talk = true;
-            }
-          }
-
-        }
-      } // End switch
-    } // End whileKILL
-  }
-
-
-  if( outputPID && slavePID ) // parent process. will read and run the session file.
-  {  
-
-    // close the read end of the pipe
-    if(close(outputPipe[0]) == -1)
-      fail("closing output pipe read end");
-
-    // configure terminal for raw mode so we
-    // can get chars from the user and send them straight to
-    // the slave (by writing to the masterfd).
-    //
-    // note: we also need to disable echoing since the slave will
-    // echo its input.
-    rc = tcgetattr(0, &orig_term_settings);
-    new_term_settings = orig_term_settings;
-    new_term_settings.c_lflag &= ~ECHO;
-    new_term_settings.c_lflag &= ~ICANON;
-    tcsetattr(0, TCSANOW, &new_term_settings);
-    if( tcsetattr(0, TCSANOW, &new_term_settings) == -1)
-      fail("configuring terminal to non-canonical mode");
-
-
-
-
-
-    vector<string> lines;
-    string line;
-    const char *linep;
-
-    string commandstr;
-    vector<string> commandtoks;
-    stringstream ss;
-    string tok;
-    boost::regex comment_regex("(?<!\\\\)#.*$");
-    boost::regex comment_line_regex("^[ \t]*#");
-
-    int i, j;
-
-
-
-    if( vm.count("setup-command") )
-    {
-    // run setup commands
-      write( outputPipe[1], "stdout off", sizeof("stdout off") );
-      pause(10);
-
-      for( i = 0; i < vm["setup-command"].as<vector<string>>().size(); i++ )
-      {
-        line = trim( vm["setup-command"].as<vector<string>>()[i] );
-        write(masterfd, line.c_str(), line.size());
-        write(masterfd, "\r", 1);
-      }
-
-      write( outputPipe[1], "stdout on", sizeof("stdout on") );
-      pause(10);
-    }
-
-
-
-
-    // Read in session file.
-    lines = load_script( vm["session-file"].as<string>(), context );
-    // setup preview file
-    ofstream pfs;
-    if( vm.count("preview") )
-      pfs.open(".gsc-preview");
-
-    // modes
-    bool simulate_typing_mode = true;
-    bool interactive_mode     = true;
-    bool keysym_mode          = false;
-    bool implicit_return_mode = true;
-
-    bool line_loaded;
-    bool exit = false;
-
-
-#ifdef USE_XDO
-    // setup xdo for sending key press events
-    xdo_t *xdo = xdo_new(NULL);
-    char xdo_buffer[BUFSIZ];
-#endif
-
-    // check to see if there is a "start" command in the script
-    int starti = 0;
-    for( i = 0; i < lines.size(); i++)
-    {
-      if( boost::regex_search( lines[i], comment_line_regex ) )
-      {
-        commandstr = boost::regex_replace( lines[i], comment_line_regex, "" );
-        commandstr = trim(commandstr);
-        if( commandstr == "start" )
-          starti = i;
-      }
-    }
-    for( i = starti; i < lines.size(); i++)
-    {
-      pfs << lines[i] << endl;
-
-      line = lines[i];
-      // remove comment from line if it exists
-      line_loaded=false;
+      std::string& line = *state.script_line_it;
+      // process line for commands
       
-
-      if( boost::regex_search( line, comment_line_regex ) )
+      // send line to shell
+      state.line_status = LineStatus::EMPTY;
+      for( state.line_character_it = line.begin(); state.line_character_it != line.end(); state.line_character_it++)
       {
-        commandstr = boost::regex_replace( line, comment_line_regex, "" );
-        commandstr = trim(commandstr);
-        commandtoks = boost::split( commandtoks, commandstr, boost::is_any_of(" \t,") );
-        #include "macros/process_commands.h"
-      }
+        // process user input
+        process_user_input();
 
-      // skip comments (could also use an else statement)
-      if( boost::regex_search( line, comment_line_regex ) )
-          continue;
-      // remove any comments from the line
-      line = boost::regex_replace( line, comment_regex, "" );
-      // replace an escaped hashtags
-      line = boost::regex_replace( line, boost::regex("\\\\#"), "#" );
+        ch = *state.line_character_it;
+        // send the char to shell
+        send_to_slave(ch);
+        state.line_status = LineStatus::INPROCESS;
 
-
-
-      // require user command before *and* after a line is loaded.
-      // before line is loaded...
-      #include "macros/handle_interactive_commands.h"
-      if(exit)
-        break;
-
-      linep = line.c_str();
-      if(keysym_mode)
-      {
-#ifdef USE_XDO
-        strcpy(xdo_buffer, linep);
-        char* token = strtok(xdo_buffer, " ");
-        input[1] = 0;
-        while(token)
+        if(line.end() - state.line_character_it == 1)
         {
-          // send keypress events to current window
-          xdo_send_keysequence_window(xdo, CURRENTWINDOW, token, 0);
-          if(sflg && simulate_typing_mode)
-            rand_pause();
-          // now read the keypress from input
-          passthrough_char(masterfd);
-          token = strtok(NULL, " ");
+          state.line_status = LineStatus::LOADED;
+          process_user_input();
         }
-#else
-        throw std::runtime_error("Cannot enter \"keysym mode\". gsc was not compiled with libxdo.");
-#endif
+
       }
-      else
-      {
-        for( j = 0; j < line.size(); j++)
-        {
-
-          write(masterfd, linep+j, 1);
-          if(sflg && simulate_typing_mode)
-            rand_pause();
-          if( iflg && interactive_mode && strchr(vm["wait-chars"].as<string>().c_str(), linep[j]) != NULL )
-            nc = read(0, input, BUFSIZ);
-
-        }
-      }
-      line_loaded=true;
-
-      // after line is loaed...
-      #include "macros/handle_interactive_commands.h"
-
-      pause( pause_time ); // pause before and after hitting "enter"
-      if(!keysym_mode)
-      {
-        if(implicit_return_mode)
-          write(masterfd, "\r", 1);
-      }
-      pause( pause_time );
+      send_to_slave('\r');
     }
+    // wait for user before we quit
+    get_from_stdin(ich);
 
-#ifdef USE_XDO
-    // cleanup key press event sender
-    xdo_free(NULL);
-#endif
-
-    // close preview file
-    pfs << "DONE" << endl;
-    pfs.close();
-
-    // wait for the user before exiting unless the exit command was given
-    // or we are in non-interactive mode
-    if(iflg && interactive_mode && !exit)
-      nc = read(0, input, BUFSIZ);
-
-    if( vm.count("cleanup-command") )
-    {
-      // run cleanup commands
-      write( outputPipe[1], "stdout off", sizeof("stdout off") );
-      pause(1);
-      for( i = 0; i < vm["cleanup-command"].as<vector<string>>().size(); i++ )
-      {
-        line = trim( vm["cleanup-command"].as<vector<string>>()[i] );
-        write(masterfd, line.c_str(), line.size());
-        write(masterfd, "\r", 1);
-        pause(1);
-      }
-      pause(10);
-    }
+    // tell slave output thread to stop
+    state.shutdown = true;
+    slave_output_thread.join();
   }
 
+  // go ahead and reset the terminal
+  tcsetattr(0,TCSAFLUSH,&terminal_settings);
 
-  // make sure child procs are killed
-  kill( outputPID,    SIGTERM );
-  kill( slavePID, SIGTERM );
-
-  tcsetattr(0, TCSANOW, &orig_term_settings);
-
+  
+  BOOST_LOG_TRIVIAL(debug) << "Session run completed.";
   return 0;
 }
 
+bool Session::amChild()
+{
+  return state.slavePID == 0;
+}
 
+bool Session::amParent()
+{
+  return state.slavePID > 0;
+}
+
+int Session::get_from_stdin(char& c)
+{
+  return read(0,&c,1);
+}
+
+int Session::send_to_stdout(char c)
+{
+  return write(1,&c,1);
+}
+
+int Session::get_from_slave(char& c)
+{
+  // output of slave is read from master input
+  return read(state.masterfd,&c,1);
+}
+
+int Session::send_to_slave(char c)
+{
+  // some translation
+  if( c == '\n' )
+    c = '\r';
+
+  return write(state.masterfd,&c,1);
+}
+
+void Session::init_shell_args()
+{
+  if( boost::algorithm::ends_with( this->shell, "bash" )
+  ||  boost::algorithm::ends_with( this->shell, "zsh" )
+  ||  boost::algorithm::ends_with( this->shell, "sh" )
+  )
+  {
+    shell_args.push_back("-i");
+  }
+}
+
+void Session::process_slave_output()
+{
+  char ch;
+  int rc;
+  // use a poll to check for data from the slave
+  pollfd polls;
+  polls.fd = state.masterfd;
+  polls.events = POLLIN;
+  while(!state.shutdown)
+  {
+    while( rc = poll(&polls,1,0) )
+    {
+      if(rc < 0)
+        throw std::runtime_error("There was a problem polling masterfd.");
+
+      get_from_slave(ch);
+      // check if slave output should be printed
+      send_to_stdout(ch);
+    }
+  }
+
+
+  return;
+}
+
+void Session::process_user_input()
+{
+  char c;
+  bool cont;
+  // this function would probably be
+  // better with a goto.
+  cont = true;
+  while(cont)
+  {
+    // by default, we loop once.
+    cont = false;
+
+    if(state.input_mode == UserInputMode::COMMAND)
+    {
+      // =command mode=
+      // read characters from standard in and interpret
+      // them as commands. this allows the user to modify
+      // state.
+
+      while(get_from_stdin(c)) // read input until we recognize a command
+      {
+        if( c == 'q' ) // quit program
+          throw return_exception();
+        if( c == 'i' ) // switch to insert mode
+        {
+          state.input_mode = UserInputMode::INSERT;
+          break;
+        }
+        if( c == 'p' ) // switch to passhthrough mode
+        {
+          state.input_mode = UserInputMode::PASSTHROUGH;
+          break;
+        }
+        if( c == '\r' ) // return back to caller
+        {
+          break;
+        }
+      }
+    }
+
+    if(state.input_mode == UserInputMode::INSERT)
+    {
+      // =insert mode=
+      //
+      // just return to back to the caller when
+      // a key is pressed, UNLESS
+      //
+      // - the user presses Esc. then switch to command mode and start over
+      // - a shell line has been loaded. then wait for the user to press Return
+      // - the user presses Backspace. then pass Backspace to the shell and back up the line_char_it
+      for(;;) // start looping
+      {
+          get_from_stdin(c); // reach char from user
+          if( c == 127 ) // Backspace key: send to shell, rewind the line character iterator, and start over
+          {
+            if(state.line_character_it > state.script_line_it->begin())
+            { // only delete characters if at least one is loaded.
+              send_to_slave(c);
+              state.line_character_it--;
+              state.line_status = LineStatus::INPROCESS;
+            }
+            if(state.line_character_it == state.script_line_it->begin())
+            {
+              state.line_status = LineStatus::EMPTY;
+            }
+            cont = true;
+            break;
+          }
+          if( c == 27 ) // Esc key: switch to command mode and start over
+          {
+            state.input_mode = UserInputMode::COMMAND;
+            cont = true;
+            break;
+          }
+
+          if( c == '\r' ) // return back to caller
+          {
+            break;
+          }
+
+          // if a line has been loaded, don't return unless
+          // the user presses Enter (which is handled above)
+          if( state.line_status == LineStatus::LOADED )
+            continue;
+
+          break;
+
+      }
+    }
+
+    if(state.input_mode == UserInputMode::PASSTHROUGH)
+    {
+      // =passthrough mode=
+      // 
+      // pass user input to the shell until
+      // they press Ctl-D. then switch to command mode
+      // and start over.
+      // TODO: if the user enters passthrough mode while
+      // a shell line is still being loaded, they probably don't want
+      // to finish the line. should probably signal that the rest of
+      // the line should be discarded. perhaps we could set the
+      // line status to loaded.
+      //
+      // on the other hand, the user could switch to passthrough
+      // mode to fix a typo and then want the rest of the line to
+      // finish loading.
+      while(get_from_stdin(c))
+      {
+        if( iscntrl( (unsigned char)c ) )
+        {
+          if((c^64)==68)
+          {
+            state.input_mode = UserInputMode::COMMAND;
+            cont = true;
+            break;
+          }
+          
+        }
+        send_to_slave(c);
+      }
+    }
+  }
+
+  return;
+}

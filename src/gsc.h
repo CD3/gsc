@@ -1,236 +1,102 @@
 #ifndef gsc_h
 #define gsc_h
 
+/** @file gsc.h
+  * @brief 
+  * @author C.D. Clark III
+  * @date 12/21/18
+  */
 
-// definition of all functions used by gsc.cpp
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE 600
-#endif
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
-#include <sys/select.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
-#include <signal.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
 #include <termios.h>
-
-#include <string>
-#include <vector>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-
-#include <boost/regex.hpp>
-
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
-
-#include <boost/algorithm/string.hpp>
-
-#if USE_XDO
-extern "C" {
-#include <xdo.h>
-}
-#endif
-
-using namespace std;
+#include <exception>
+#include <map>
 
 
-namespace gsc {
+enum class TypingMode {SIMULATE,NONE,USER};
+enum class InteractiveMode {ON, OFF};
+enum class ReturnMode {AUTO,MANUAL};
+enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH};
+enum class LineStatus {EMPTY, INPROCESS, LOADED};
 
-inline bool fileExists(const string& filename)
+class return_exception : public std::exception {};
+
+using Context = std::map<std::string, std::string>;
+
+enum class IOAction { Discard = 1,
+                      SendToStdout = 1<<1,
+                      SendToSlave = 1<<2,
+                      SendTooMaster = 1<<3,
+                      ReadFromStdin = 1<<4,
+                      ReadFromSlave = 1<<5,
+                      ReadFromMaster = 1<<6
+                    };
+
+
+struct SessionState
 {
-  struct stat buf;
-  if (stat(filename.c_str(), &buf) != -1)
-    return true;
-  return false;
-}
+  UserInputMode input_mode = UserInputMode::INSERT;
+  LineStatus line_status = LineStatus::EMPTY;
+  int masterfd = -2;
+  int slavefd = -2;
+  char *slave_device_name = NULL;
+  pid_t slavePID = -2;
+  bool shutdown = false;
 
+  termios terminal_settings;
 
-typedef std::map<std::string, std::string> Context;
+  std::vector<std::string>::iterator script_line_it;
+  std::string::iterator line_character_it;
+};
 
-inline
-std::string fmt( std::string templ, const Context& context, std::string stag="%", std::string etag="%" )
+std::string render( std::string templ, const Context& context, std::string stag="%", std::string etag="%" );
+
+struct SessionScript
 {
-  for( auto &c : context )
-  {
-    std::string pat = stag+c.first+etag;
-    boost::regex re(pat);
-    templ = boost::regex_replace( templ, re, c.second);
-  }
+  std::vector<std::string> lines;
+  Context context;
+  std::string render_stag = "%";
+  std::string render_etag = "%";
 
-  return templ;
-}
+  void load(const std::string& filename);
+  void render();
 
-inline string rtrim(
-  const string& s,
-  const string& delimiters = " \f\n\r\t\v" )
+};
+
+
+struct Session
 {
-  auto pos = s.find_last_not_of( delimiters );
-  if( pos == string::npos )
-    return "";
-  return s.substr( 0, pos + 1 );
-}
+  std::string filename;
+  std::string shell;
+  std::vector<std::string> shell_args;
+  SessionScript script;
+  SessionState state;
+  termios terminal_settings;
 
-inline string ltrim(
-  const string& s,
-  const string& delimiters = " \f\n\r\t\v" )
-{
-  auto pos = s.find_last_not_of( delimiters );
-  if( pos == string::npos )
-    return "";
-  return s.substr( s.find_first_not_of( delimiters ) );
-}
+  Session(std::string filename, std::string shell = "");
+  ~Session();
 
-inline string trim(
-  const string& s,
-  const string& delimiters = " \f\n\r\t\v" )
-{
-  return ltrim( rtrim( s, delimiters ), delimiters );
-}
 
-inline void fail(string msg)
-{
-  cerr << "Error (" << errno << "): " << msg << endl;
-  exit(1);
-}
+  int run();
+  int get_from_stdin(char& c);
+  int send_to_stdout(char c);
+  int get_from_slave(char& c);
+  int send_to_slave(char c);
 
-inline void pause(long counts)
-{
-  // pause, by calling nanosleep, for a specified number of counts.
-  // one count is a tenth of a second.
-  long long dt = counts*1e8;
-  struct timespec t;
-  t.tv_sec  = dt/1000000000;
-  t.tv_nsec = dt%1000000000;
-  nanosleep(&t, NULL);
+  void process_user_input();
+  void process_script_line();
 
-  return;
-}
+  void process_slave_output();
 
-int rand_pause_min = 1;
-int rand_pause_max = 1;
-inline void rand_pause()
-{
-  pause( rand_pause_min + (rand_pause_max-rand_pause_min)*(double)rand()/(double)RAND_MAX );
-}
 
-string messenger = "file";
-inline void message(string msg)
-{
-  if(messenger == "file")
-  {
-    ofstream out(".gsc-messages", ios_base::app);
-    out << msg << endl;
-    out.close();
-  }
+  void init_shell_args();
 
-  if(messenger == "notify-send")
-  {
-    string cmd = "notify-send '"+msg+"'";
-    system(cmd.c_str());
-  }
+  bool amParent();
+  bool amChild();
 
-  if(messenger == "xmessage")
-  {
-    string cmd = "xmessage '"+msg+"'";
-    system(cmd.c_str());
-  }
-}
+};
 
-inline string dirname( string path )
-{
-  string dir;
-
-  std::size_t found = path.find_last_of("/\\");
-  if(found == string::npos)
-    dir = ".";
-  else
-    dir = path.substr(0,found);
-
-  return dir;
-}
-
-inline string basename( string path )
-{
-  string filename;
-
-  std::size_t found = path.find_last_of("/\\");
-  filename = path.substr(found+1);
-
-  return filename;
-}
-
-inline string path_join( string a, string b )
-{
-  return a+'/'+b;
-}
-
-inline vector<string> load_script( string filename, Context context = Context() )
-{
-  if(!fileExists(filename))
-    fail("Script file does not exists ("+filename+")");
-  vector<string> lines;
-  string line;
-  ifstream in( filename.c_str() );
-
-  boost::regex include_statement("^[ \t]*#[ \t]*include[ \t]+([^ ]*)");
-  boost::smatch match;
-
-  while(getline(in, line))
-  {
-    line = fmt(line, context);
-    if( boost::regex_search( line, match, include_statement ) && match.size() > 1 )
-    {
-      string fn = trim(match.str(1),"\"" );
-      auto llines = load_script( path_join(dirname(filename),fn) );
-      lines.insert(lines.end(), llines.begin(), llines.end());
-    }
-    else
-    {
-      lines.push_back( line );
-    }
-  }
-  in.close();
-
-  return lines;
-}
-
-inline void passthrough_char(int masterfd)
-{
-  char input[2];
-  input[1] = 0; // null byte
-  if( read(0, input, 1) > 0 )
-  {
-    if( (int)input[0] == 10 )
-      input[0] = '\r'; // replace returns with \r
-    write(masterfd, input, 1 ); 
-  }
-}
-// passthrough mode
-inline void passthrough( int masterfd )
-{
-  char input[2];
-  input[1] = 0; // null byte
-  // read from standard input until EOF (Ctl-D)
-  while( read(0, input, 1) > 0 && input[0] != 4)
-  {
-    if( (int)input[0] == 10 )
-      input[0] = '\r'; // replace returns with \r
-    write(masterfd, input, 1 ); 
-  }
-}
-
-}
 
 
 #endif // include protector

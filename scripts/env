@@ -1,0 +1,11 @@
+#! /bin/bash
+
+set -e
+ROOTDIR=$(git rev-parse --show-toplevel || echo $PWD)
+SCRIPTDIR=${ROOTDIR}/scripts
+EXTDIR=${ROOTDIR}/externals
+INSTALLDIR=${EXTDIR}/install
+DOWNLOADDIR=${EXTDIR}/downloads
+
+
+

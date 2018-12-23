@@ -15,7 +15,6 @@ OPTION( BUILD_UNIT_TESTS "Build unit tests for the library" ON )
 
 
 include_directories( "${CMAKE_CURRENT_SOURCE_DIR}/include" )
-include_directories( "${PROJECT_SOURCE_DIR}/src" )
 
 if(BUILD_UNIT_TESTS)
 
@@ -40,7 +39,7 @@ endforeach()
 # Add unit test executable
 set( testName ${PROJECT_NAME}_CatchTests )
 add_executable(${testName} ${unitTest_SOURCES})
-set_target_properties( ${testName} PROPERTIES CXX_STANDARD 11)
+target_link_libraries( ${testName} libgsc )
 
 #Link dependencies
 target_link_libraries(${testName} ${LIBS} ) # If your project builds a library, link to it here

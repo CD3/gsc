@@ -1,0 +1,13 @@
+#! /bin/bash
+
+source ${0%/*}/env
+
+cd ${ROOTDIR}
+${SCRIPTDIR}/setup
+
+cd build
+cmake --build .
+for file in ./testBin/*
+do
+  ${file}
+done

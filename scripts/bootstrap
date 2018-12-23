@@ -1,0 +1,50 @@
+#! /bin/bash
+
+source ${0%/*}/env
+
+dependencies="" # list project names that your project needs to have installed
+locations=""    # list locations to look for the projects that need to be installed
+
+
+cd ${EXTDIR}
+mkdir -p ${INSTALLDIR} ${DOWNLOADDIR}
+cd ${DOWNLOADDIR}
+
+for dep in ${dependencies}
+do
+  downloaded=0
+  [[ -e $dep ]] && downloaded=1
+
+  if [[ $downloaded == 0 ]]
+  then
+    found=0
+    for loc in ${locations}
+    do
+      [[ $found == 1 ]] && break
+      # look for dependency at location using git ls-remote
+      url=$loc$dep
+      git ls-remote --exit-code $url && found=1
+    done
+
+    if [[ $found == 1 ]]
+    then
+      echo "Found $dep at $url"
+      git clone ${url}
+      downloaded=1
+    fi
+  fi
+
+  if [[ $downloaded == 1 ]]
+  then
+    dir=${dep##*/}
+    cd $dir
+    mkdir -p build
+    cd build
+    cmake .. -DCMAKE_INSTALL_PREFIX=${EXTDIR}/install
+    cmake --build . --target install
+
+  else
+    echo "Could not download $dep. Is it named correctly?"
+    echo "Tried looking at: $locations"
+  fi
+done
