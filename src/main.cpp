@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <string>
 #include <vector>
@@ -9,12 +8,17 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/process.hpp>
 
 #include "./gsc.h"
 
 namespace po = boost::program_options;
 using namespace boost;
 using namespace std;
+
+std::string manual_text = R"(
+
+)";
 
 int main(int argc, char *argv[])
 {
@@ -24,23 +28,14 @@ int main(int argc, char *argv[])
   options.add_options()
     ("help,h"            , "print help message")
     ("debug,d"           , "debug mode. print everything.")
-    ("interactive,i"     , po::value<bool>()->default_value("on"), "disable/enable interactive mode")
-    ("simulate-typing,s" , po::value<bool>()->default_value("on"), "disable/enable simulating typing")
-    ("test,t"            , "run script in non-interactive mode and check for errors.")
-    ("pause,p"           , po::value<int>()->default_value(0),     "pause for given number of deciseconds (1/10 second) before and after a line is loaded.")
-    ("rand_pause_min"    , po::value<int>()->default_value(1),     "minimum pause time during simulated typing.")
-    ("rand_pause_max"    , po::value<int>()->default_value(1),     "maximum pause time during simulated typing.")
     ("shell"             , po::value<string>()->default_value(""), "use shell instead of default.")
-    ("wait-chars,w"      , po::value<string>()->default_value(""), "list of characters that will cause script to stop and wait for user to press enter.")
-    ("setup-command"     , po::value<vector<string>>()->composing(), "setup command(s) that will be ran before the script.")
-    ("cleanup-command"   , po::value<vector<string>>()->composing(), "cleanup command(s) that will be ran after the script.")
-    ("config-file"       , po::value<vector<string>>()->composing(), "config file(s) with more options to read.")
-    ("preview"           , "write script lines to a file before they are loaded.")
-    ("messenger"         , po::value<string>(), "the method to use for messages")
-    ("list-messengers"   , "list the supported messengers")
+    ("setup-script"      , po::value<vector<string>>()->composing(), "may be given multiple times. executables that will be ran before the session starts.")
+    ("cleanup-script"    , po::value<vector<string>>()->composing(), "may be given multiple times. executable that will be ran after the session finishes.")
+    ("setup-command"     , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
+    ("cleanup-command"   , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
     ("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
     ("save-file"         , po::value<string>(), "write a new session file that contains all commands that were actually ran.")
-    ("session-file"      , po::value<string>()->required(), "script file to run.")
+    ("session-file"      , po::value<string>(), "script file to run.")
     ;
 
   po::positional_options_description args;
@@ -50,15 +45,22 @@ int main(int argc, char *argv[])
   po::store(po::command_line_parser(argc, argv).options(options).positional(args).run(), vm);
   po::notify(vm);
 
-  filesystem::path session_path(vm["session-file"].as<string>());
-  string session_filename = session_path.filename().string();
-  string session_basename = session_path.stem().string();
-
   if(vm.count("help"))
   {
     cout << options << endl;
     exit(0);
   }
+  if(vm.count("session-file") == 0)
+  {
+    cout << "Usage: " << argv[0] << " [OPTIONS] <session-file>" << endl;
+    cout << options << endl;
+    exit(0);
+  }
+
+
+  filesystem::path session_path(vm["session-file"].as<string>());
+  string session_filename = session_path.filename().string();
+  string session_basename = session_path.stem().string();
 
   // initialize logger
   {
@@ -97,18 +99,54 @@ int main(int argc, char *argv[])
     }
   }
 
+  // collect setup and cleanup scripts
+  vector<string> setup_scripts;
+  if( vm.count("setup-script") > 0 )
+  {
+    for( auto &s : vm["setup-script"].as<vector<string>>() )
+      setup_scripts.push_back(s);
+  }
+
+  vector<string> cleanup_scripts;
+  if( vm.count("cleanup-script") > 0 )
+  {
+    for( auto &s : vm["cleanup-script"].as<vector<string>>() )
+      cleanup_scripts.push_back(s);
+  }
+
+
 
 
 
 
   // create the session that will run the script
   Session session(session_filename,vm["shell"].as<string>());
+
   // configure the session
-  // run the session
+  if( vm.count("setup-command") > 0 )
+  {
+    for( auto &s : vm["setup-command"].as<vector<string>>() )
+      session.setup_commands.push_back(s);
+  }
+
+  if( vm.count("cleanup-command") > 0 )
+  {
+    for( auto &s : vm["cleanup-command"].as<vector<string>>() )
+      session.cleanup_commands.push_back(s);
+  }
+  
 
   
   try {
+    for( auto &s : setup_scripts )
+      process::system(s.c_str());
+
+    // run the session
     session.run();
+
+    for( auto &s : cleanup_scripts )
+      process::system(s.c_str());
+
   }
   catch(const return_exception& e)
   {
@@ -117,12 +155,12 @@ int main(int argc, char *argv[])
   }
   catch(const std::runtime_error& e)
   {
-    BOOST_LOG_TRIVIAL(debug) << "An error occurred. ";
+    BOOST_LOG_TRIVIAL(error) << "An error occurred: " << e.what();
     return 1;
   }
   catch(...)
   {
-    BOOST_LOG_TRIVIAL(debug) << "An unknown error occurred.";
+    BOOST_LOG_TRIVIAL(error) << "An unknown error occurred.";
     return 1;
   }
 

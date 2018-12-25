@@ -70,6 +70,9 @@ struct Session
   std::string filename;
   std::string shell;
   std::vector<std::string> shell_args;
+  std::vector<std::string> setup_commands;
+  std::vector<std::string> cleanup_commands;
+
   SessionScript script;
   SessionState state;
   termios terminal_settings;

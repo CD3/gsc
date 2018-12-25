@@ -53,6 +53,7 @@ add_test(NAME ${testName}
          WORKING_DIRECTORY ${buildDir}
          COMMAND ${binDir}/${testName} )
 
+file(COPY ExpectTests DESTINATION ${binDir})
 
 endif()
 

@@ -166,6 +166,18 @@ int Session::run()
     int rc;
     char ch, ich, och;
 
+    // run setup commands first
+    BOOST_LOG_TRIVIAL(debug) << "running setup commands";
+    for( auto &l : setup_commands )
+    {
+      BOOST_LOG_TRIVIAL(debug) << "  setup command: " << l;
+      for( auto &c : l )
+      {
+        send_to_slave(c);
+      }
+      send_to_slave('\r');
+    }
+
     // process script and user input
     for(; state.script_line_it != this->script.lines.end(); state.script_line_it++)
     {
@@ -193,12 +205,31 @@ int Session::run()
       }
       send_to_slave('\r');
     }
+
+    // run cleanup commands first
+    BOOST_LOG_TRIVIAL(debug) << "running cleanup commands";
+    for( auto &l : cleanup_commands )
+    {
+      BOOST_LOG_TRIVIAL(debug) << "  cleanup command: " << l;
+      for( auto &c : l )
+      {
+        send_to_slave(c);
+      }
+      send_to_slave('\r');
+    }
+
+    do { get_from_stdin(ich); }while(ich != '\r');
+    // inform the user that the session has ended.
+    for( auto c : "\n\n\rSession Finished. Press Enter.\n\r" )
+      send_to_stdout(c);
     // wait for user before we quit
-    get_from_stdin(ich);
+    do { get_from_stdin(ich); }while(ich != '\r');
+
 
     // tell slave output thread to stop
     state.shutdown = true;
     slave_output_thread.join();
+
   }
 
   // go ahead and reset the terminal
@@ -275,6 +306,7 @@ void Session::process_slave_output()
       send_to_stdout(ch);
     }
   }
+  
 
 
   return;
