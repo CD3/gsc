@@ -12,6 +12,7 @@
 #include <termios.h>
 #include <exception>
 #include <map>
+#include <thread>
 
 
 enum class TypingMode {SIMULATE,NONE,USER};
@@ -72,6 +73,9 @@ struct Session
   std::vector<std::string> shell_args;
   std::vector<std::string> setup_commands;
   std::vector<std::string> cleanup_commands;
+
+  std::thread slave_output_thread;
+
 
   SessionScript script;
   SessionState state;

@@ -139,9 +139,12 @@ Session::Session(std::string filename, std::string shell)
 
 Session::~Session()
 {
+  BOOST_LOG_TRIVIAL(debug) << "Session::~Session called";
   state.shutdown = true;
+  slave_output_thread.join();
   close(state.masterfd);
-  tcsetattr(0,TCSAFLUSH,&terminal_settings);
+  tcsetattr(0,TCSANOW,&terminal_settings);
+  BOOST_LOG_TRIVIAL(debug) << "Session::~Session finished";
 }
 
 int Session::run()
@@ -160,7 +163,7 @@ int Session::run()
   {
     // create a thread to process output from the
     // slave device.
-    std::thread slave_output_thread(&Session::process_slave_output,this);
+    slave_output_thread = std::thread(&Session::process_slave_output,this);
     // some vars for processing
     // return codes, input chars, and output chars.
     int rc;
@@ -236,16 +239,8 @@ int Session::run()
     do { get_from_stdin(ich); }while(ich != '\r');
 
 
-    // tell slave output thread to stop
-    state.shutdown = true;
-    slave_output_thread.join();
-
   }
 
-  // go ahead and reset the terminal
-  tcsetattr(0,TCSAFLUSH,&terminal_settings);
-
-  
   BOOST_LOG_TRIVIAL(debug) << "Session run completed.";
   return 0;
 }
