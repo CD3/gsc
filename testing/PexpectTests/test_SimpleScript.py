@@ -103,3 +103,19 @@ def test_BackspaceInInsertMode():
 
 
   child.terminate()
+
+def test_CommentsAreIgnored():
+
+  with open("script.sh", "w") as f:
+    f.write("# comment\n");
+    f.write("echo\n");
+
+  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
+  child.expect(r"\$ ")
+
+  assert child.send("aaaa") == 4
+  assert child.expect("echo") == 0
+
+
+
+  child.terminate()

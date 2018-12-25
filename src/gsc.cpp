@@ -6,6 +6,7 @@
 
 #include <boost/log/trivial.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
 
 #include <sys/poll.h>
@@ -182,10 +183,13 @@ int Session::run()
     }
 
     // process script and user input
-    for(; state.script_line_it != this->script.lines.end(); state.script_line_it++)
+    state.script_line_it = this->script.lines.begin();
+    while(state.script_line_it != this->script.lines.end())
     {
+      // process line for commands, comments, etc.
+      process_script_line();
+
       std::string& line = *state.script_line_it;
-      // process line for commands
       
       // send line to shell
       state.line_status = LineStatus::EMPTY;
@@ -217,6 +221,8 @@ int Session::run()
         if( state.line_status == LineStatus::LOADED )
           send_to_slave('\r');
       }
+
+      state.script_line_it++;
     }
 
     // run cleanup commands first
@@ -444,3 +450,24 @@ void Session::process_user_input()
 
   return;
 }
+
+void Session::process_script_line()
+{
+
+  while(state.script_line_it != this->script.lines.end())
+  {
+    std::string line = *state.script_line_it;
+    std::string trimmed_line = boost::trim_left_copy(line);
+
+    if( boost::starts_with(trimmed_line, "#") )
+      state.script_line_it++;
+
+    break;
+  }
+
+}
+
+  
+
+
+

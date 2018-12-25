@@ -15,25 +15,13 @@
 #include <thread>
 
 
-enum class TypingMode {SIMULATE,NONE,USER};
 enum class InteractiveMode {ON, OFF};
 enum class ReturnMode {AUTO,MANUAL};
 enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH};
 enum class LineStatus {EMPTY, INPROCESS, LOADED};
 
 class return_exception : public std::exception {};
-
 using Context = std::map<std::string, std::string>;
-
-enum class IOAction { Discard = 1,
-                      SendToStdout = 1<<1,
-                      SendToSlave = 1<<2,
-                      SendTooMaster = 1<<3,
-                      ReadFromStdin = 1<<4,
-                      ReadFromSlave = 1<<5,
-                      ReadFromMaster = 1<<6
-                    };
-
 
 struct SessionState
 {
@@ -50,8 +38,6 @@ struct SessionState
   std::vector<std::string>::iterator script_line_it;
   std::string::iterator line_character_it;
 };
-
-std::string render( std::string templ, const Context& context, std::string stag="%", std::string etag="%" );
 
 struct SessionScript
 {
@@ -103,6 +89,8 @@ struct Session
   bool amChild();
 
 };
+
+std::string render( std::string templ, const Context& context, std::string stag="%", std::string etag="%" );
 
 
 
