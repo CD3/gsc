@@ -188,20 +188,28 @@ int Session::run()
       state.line_status = LineStatus::EMPTY;
       state.line_character_it = line.begin();
       while( state.line_status != LineStatus::LOADED )
-      {
+      { // loop until the line has been marked as loaded
+
         while( state.line_character_it != line.end() )
-        {
+        { // loop until the last character has been loaded
+
           // process user input
           process_user_input();
-
+          // need to call this AFTER user input because
+          // the user might change the iterator
           ch = *state.line_character_it;
-          // send the char to shell
           send_to_slave(ch);
           state.line_status = LineStatus::INPROCESS;
 
           state.line_character_it++;
         }
+
         state.line_status = LineStatus::LOADED;
+
+        // process user input.
+        // the user may press backspace, in which case
+        // the line status will be reset to processing
+        // and we will need to go back to the top.
         process_user_input();
         if( state.line_status == LineStatus::LOADED )
           send_to_slave('\r');
@@ -222,7 +230,7 @@ int Session::run()
 
     do { get_from_stdin(ich); }while(ich != '\r');
     // inform the user that the session has ended.
-    for( auto c : "\n\n\rSession Finished. Press Enter.\n\r" )
+    for( auto c : "\r\n\r\nSession Finished. Press Enter.\r\n" )
       send_to_stdout(c);
     // wait for user before we quit
     do { get_from_stdin(ich); }while(ich != '\r');
@@ -369,6 +377,7 @@ void Session::process_user_input()
           get_from_stdin(c); // reach char from user
           if( c == 127 ) // Backspace key: send to shell, rewind the line character iterator, and start over
           {
+            LineStatus init_line_status = state.line_status;
             if(state.line_character_it > state.script_line_it->begin())
             { // only delete characters if at least one is loaded.
               send_to_slave(c);
@@ -379,7 +388,8 @@ void Session::process_user_input()
             {
               state.line_status = LineStatus::EMPTY;
             }
-            cont = true;
+            if( init_line_status != LineStatus::LOADED )
+              cont = true; // if line was loaded, we need to break immediatly so that the input loop will be restarted
             break;
           }
           if( c == 27 ) // Esc key: switch to command mode and start over

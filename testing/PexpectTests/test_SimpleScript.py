@@ -41,9 +41,65 @@ def test_SimpleScriptInsertMode():
   child.expect(r"\$ ")
 
   child.sendcontrol(r"m")
-  assert child.expect("\n") == 0
+  assert child.expect("\r\n") == 0
+  assert child.expect("\r\n") == 0
   assert child.expect("Session Finished. Press Enter.") == 0
-  assert child.expect("\n") == 0
+  assert child.expect("\r\n") == 0
+  assert child.expect(b"\x00") == 0 # NOT SURE WHAT IS SENDING THIS.
+
+  child.sendcontrol(r"m")
+  child.expect(pexpect.EOF)
+
+  assert not child.isalive()
+
+
+
+def test_BackspaceInInsertMode():
+
+  with open("script.sh", "w") as f:
+    f.write("echo hi\n");
+
+  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
+  child.expect(r"\$ ")
+
+  assert child.send("a") == 1
+  assert child.expect("e") == 0
+
+  assert child.send("a") == 1
+  assert child.expect("c") == 0
+
+  assert child.send(b'\x7f') == 1
+  assert child.expect(b'\x08') == 0
+
+  assert child.send("a") == 1
+  assert child.expect("c") == 0
+
+  assert child.send("a") == 1
+  assert child.expect("h") == 0
+
+  assert child.send("a") == 1
+  assert child.expect("o") == 0
+
+  assert child.send("a") == 1
+  assert child.expect(" ") == 0
+
+  assert child.send("a") == 1
+  assert child.expect("h") == 0
+
+  assert child.send("a") == 1
+  assert child.expect("i") == 0
+
+  assert child.send(b'\x7f') == 1
+  assert child.expect(b'\x08') == 0
+
+  assert child.send(b'\x7f') == 1
+  assert child.expect(b'\x08') == 0
+
+  assert child.send("a") == 1
+  assert child.expect("h") == 0
+
+  assert child.send("a") == 1
+  assert child.expect("i") == 0
 
 
   child.terminate()
