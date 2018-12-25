@@ -186,24 +186,26 @@ int Session::run()
       
       // send line to shell
       state.line_status = LineStatus::EMPTY;
-      for( state.line_character_it = line.begin(); state.line_character_it != line.end(); state.line_character_it++)
+      state.line_character_it = line.begin();
+      while( state.line_status != LineStatus::LOADED )
       {
-        // process user input
-        process_user_input();
-
-        ch = *state.line_character_it;
-        // send the char to shell
-        send_to_slave(ch);
-        state.line_status = LineStatus::INPROCESS;
-
-        if(line.end() - state.line_character_it == 1)
+        while( state.line_character_it != line.end() )
         {
-          state.line_status = LineStatus::LOADED;
+          // process user input
           process_user_input();
-        }
 
+          ch = *state.line_character_it;
+          // send the char to shell
+          send_to_slave(ch);
+          state.line_status = LineStatus::INPROCESS;
+
+          state.line_character_it++;
+        }
+        state.line_status = LineStatus::LOADED;
+        process_user_input();
+        if( state.line_status == LineStatus::LOADED )
+          send_to_slave('\r');
       }
-      send_to_slave('\r');
     }
 
     // run cleanup commands first
@@ -387,16 +389,16 @@ void Session::process_user_input()
             break;
           }
 
-          if( c == '\r' ) // return back to caller
-          {
+          if( c == '\r' ) // always return back to caller if they press return
             break;
-          }
 
           // if a line has been loaded, don't return unless
           // the user presses Enter (which is handled above)
           if( state.line_status == LineStatus::LOADED )
             continue;
 
+          // return back to caller for any key that isn't handled
+          // specifically above.
           break;
 
       }
