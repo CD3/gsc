@@ -157,6 +157,9 @@ So, I decided to rewrite `gsc` with following goals:
 - Use `boost` for everything else.
 - Write unit tests for the interface.
 
+I also took some time to read "The Linux Programming Interface: A Linux and UNIX System Programming Handbook" by Michael Kerrisk to finally figure out pseudo terminals
+actually work. I highly recommend this book, it is chock full of information and very easy to read.
+
 Starting with version 0.20, `gsc` has been completely rewritten from scratch. I'm sure it's design could be better, but it's better than it was, and adding features
 is easier. If you are using a previous version of `gsc` with a set of demo scripts that you have already developed, you can continue to do so. There are many features
 that have been removed from the new version because I either didn't use them, or they are no longer useful with the new interface. For example, `gsc` used to load all script
