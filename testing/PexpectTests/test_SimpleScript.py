@@ -119,3 +119,22 @@ def test_CommentsAreIgnored():
 
 
   child.terminate()
+
+
+
+  with open("script.sh", "w") as f:
+    f.write("# comment 1\n");
+    f.write("#comment 2\n");
+    f.write(" # comment 3\n");
+    f.write(" #comment 3\n");
+    f.write("echo\n");
+
+  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
+  child.expect(r"\$ ")
+
+  assert child.send("aaaaaaaaaaa") == 11
+  assert child.expect("echo") == 0
+
+
+
+  child.terminate()

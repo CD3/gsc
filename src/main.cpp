@@ -34,7 +34,9 @@ int main(int argc, char *argv[])
     ("setup-command"     , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
     ("cleanup-command"   , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
     ("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
-    ("save-file"         , po::value<string>(), "write a new session file that contains all commands that were actually ran.")
+    //("save-file"         , po::value<string>(), "write a new session file that contains all commands that were actually ran.")
+    ("config-file"       , po::value<vector<string>>()->composing(), "config file to read additional options from.")
+    ("log-file"          , po::value<string>(), "log file name.")
     ("session-file"      , po::value<string>(), "script file to run.")
     ;
 
@@ -64,6 +66,10 @@ int main(int argc, char *argv[])
 
   // initialize logger
   {
+    string log_filename = "gsc.log";
+    if(vm.count("log-file"))
+      log_filename = vm["log-file"].as<string>();
+    log::add_file_log(log_filename);
     if(vm.count("debug"))
     {
       log::core::get()->set_filter( log::trivial::severity >= log::trivial::debug);
@@ -78,7 +84,12 @@ int main(int argc, char *argv[])
   // read additional configuration from file(s)
   {
     vector<string> files;
-    files.push_back(session_basename+".gscrc");
+    //files.push_back(session_basename+".gscrc");
+    if( vm.count("config-file") )
+    {
+      for( auto &f : vm["config-file"].as<vector<string>>() )
+        files.push_back(f);
+    }
     files.push_back(".gscrc");
     files.push_back("%HOME%/.gscrc");
     Context c;

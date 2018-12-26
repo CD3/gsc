@@ -171,7 +171,7 @@ int Session::run()
     char ch, ich, och;
 
     // run setup commands first
-    BOOST_LOG_TRIVIAL(debug) << "running setup commands";
+    BOOST_LOG_TRIVIAL(debug) << "Running setup commands";
     for( auto &l : setup_commands )
     {
       BOOST_LOG_TRIVIAL(debug) << "  setup command: " << l;
@@ -226,7 +226,7 @@ int Session::run()
     }
 
     // run cleanup commands first
-    BOOST_LOG_TRIVIAL(debug) << "running cleanup commands";
+    BOOST_LOG_TRIVIAL(debug) << "Running cleanup commands";
     for( auto &l : cleanup_commands )
     {
       BOOST_LOG_TRIVIAL(debug) << "  cleanup command: " << l;
@@ -457,10 +457,13 @@ void Session::process_script_line()
   while(state.script_line_it != this->script.lines.end())
   {
     std::string line = *state.script_line_it;
-    std::string trimmed_line = boost::trim_left_copy(line);
+    std::string trimmed_line = boost::trim_copy(line);
 
     if( boost::starts_with(trimmed_line, "#") )
+    { // skip comments
       state.script_line_it++;
+      continue;
+    }
 
     break;
   }
