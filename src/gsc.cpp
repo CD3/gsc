@@ -268,7 +268,11 @@ int Session::get_from_stdin(char& c)
 
 int Session::send_to_stdout(char c)
 {
-  return write(1,&c,1);
+  if( state.output_mode == OutputMode::ALL )
+    return write(1,&c,1);
+  if( state.output_mode == OutputMode::NONE )
+    return 0;
+  // handle output filtering...
 }
 
 int Session::get_from_slave(char& c)
@@ -356,6 +360,24 @@ void Session::process_user_input()
           state.input_mode = UserInputMode::PASSTHROUGH;
           break;
         }
+
+        if( c == 's' ) // swith output mode to 'silent'
+        {
+          state.output_mode = OutputMode::NONE;
+        }
+        if( c == 'v' ) // switch output mode to 'verbose'
+        {
+          state.output_mode = OutputMode::ALL;
+        }
+        if( c == 'o' ) // toggle output mode
+        {
+          if(state.output_mode == OutputMode::NONE)
+            state.output_mode = OutputMode::ALL;
+          else if(state.output_mode == OutputMode::ALL)
+            state.output_mode = OutputMode::NONE;
+
+        }
+
         if( c == '\r' ) // return back to caller
         {
           break;

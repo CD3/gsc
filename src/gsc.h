@@ -19,6 +19,7 @@ enum class InteractiveMode {ON, OFF};
 enum class ReturnMode {AUTO,MANUAL};
 enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH};
 enum class LineStatus {EMPTY, INPROCESS, LOADED};
+enum class OutputMode {ALL, NONE, FILTERED};
 
 class return_exception : public std::exception {};
 using Context = std::map<std::string, std::string>;
@@ -27,6 +28,7 @@ struct SessionState
 {
   UserInputMode input_mode = UserInputMode::INSERT;
   LineStatus line_status = LineStatus::EMPTY;
+  OutputMode output_mode = OutputMode::ALL;
   int masterfd = -2;
   int slavefd = -2;
   char *slave_device_name = NULL;

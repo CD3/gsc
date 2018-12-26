@@ -1,5 +1,6 @@
 import pexpect
 import pytest
+import time
 
 def test_SimpleScriptInsertMode():
   with open("script.sh", "w") as f:
@@ -138,3 +139,70 @@ def test_CommentsAreIgnored():
 
 
   child.terminate()
+
+def test_CommandModeQuit():
+  with open("script.sh", "w") as f:
+    f.write("echo\n");
+
+  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
+  child.expect(r"\$ ")
+  assert child.send("") == 1
+  with pytest.raises(pexpect.exceptions.TIMEOUT):
+    child.expect(".",timeout=1)
+  assert child.send("a") == 1
+  with pytest.raises(pexpect.exceptions.TIMEOUT):
+    child.expect(".",timeout=1)
+
+
+  assert child.isalive()
+
+  assert child.send("q") == 1
+  time.sleep(1)
+
+  assert not child.isalive()
+
+def test_SilenseOutput():
+
+  with open("script.sh", "w") as f:
+    f.write("ls -l\n");
+    f.write("echo hi\n");
+
+  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
+  child.expect(r"\$ ")
+
+  assert child.send("") == 1
+  assert child.send("s") == 1
+  assert child.send("i") == 1
+
+  assert child.send("a") == 1
+  assert child.send("a") == 1
+
+  assert child.send("") == 1
+  assert child.send("v") == 1
+  assert child.send("i") == 1
+
+  assert child.send("aaa") == 3
+  assert child.expect(" -l") == 0
+
+  assert child.send("") == 1
+  assert child.send("s") == 1
+  assert child.send("i") == 1
+
+  assert child.sendcontrol('m') == 1
+  with pytest.raises(pexpect.exceptions.TIMEOUT):
+    child.expect(".",timeout=1)
+
+  assert child.send("aaaa aa") == 7
+  with pytest.raises(pexpect.exceptions.TIMEOUT):
+    child.expect(".",timeout=1)
+
+  assert child.send("") == 1
+  assert child.send("v") == 1
+  assert child.send("i") == 1
+
+  assert child.sendcontrol('m') == 1
+  assert child.expect("^\r\nhi") == 0
+
+
+
+
