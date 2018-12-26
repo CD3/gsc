@@ -49,27 +49,7 @@ to change this. For example, to install into a sub-directory of your home direct
 ## Usage
 
 ```
-Usage: .gsc [OPTIONS] <session-file>
-Global options:
-  -h [ --help ]                 print help message
-  -d [ --debug ]                debug mode. print everything.
-  --shell arg                   use shell instead of default.
-  --setup-script arg            may be given multiple times. executables that 
-                                will be ran before the session starts.
-  --cleanup-script arg          may be given multiple times. executable that 
-                                will be ran after the session finishes.
-  --setup-command arg           may be given multiple times. command that will 
-                                be passed to the session shell before any 
-                                script lines.
-  --cleanup-command arg         may be given multiple times. command that will 
-                                be passed to the session shell before any 
-                                script lines.
-  -v [ --context-variable ] arg add context variable for string formatting.
-  --config-file arg             config file to read additional options from.
-  --log-file arg                log file name.
-  --session-file arg            script file to run.
-
-
+\shell{../build/gsc}
 ```
 
 ### Input Modes
