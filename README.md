@@ -1,6 +1,6 @@
 # `gsc` - guided shell scripts
 
-A simple utility that allows you to run guided scripts, useful for giving command line demonstrations.
+A simple utility that allows you to run guided scripts on Linux, useful for giving command line demonstrations.
 
 ## Description
 
@@ -83,7 +83,7 @@ to press enter before it sends the return character to the shell, so you don't a
 #### Command Mode
 
 Pressing Esc in insert mode will switch to command mode. In command mode, you can still load characters from the script one
-at a time with the Enter key, but other keys are used to issue commands to `gsc`. For example, pressing 'q' in command mode
+at a time with the `<Enter>` key, but other keys are used to issue commands to `gsc`. For example, pressing 'q' in command mode
 will exit `gsc`.
 
 Currently, the following commands are implemented:
