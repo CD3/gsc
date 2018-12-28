@@ -59,8 +59,6 @@ Session::Session(std::string filename, std::string shell)
     this->shell = getenv("SHELL") == NULL ? "sh" : getenv("SHELL");
   this->init_shell_args();
 
-
-
   int rc;
   rc = tcgetattr(0,&terminal_settings);
   if( rc == -1 )
@@ -132,9 +130,6 @@ Session::Session(std::string filename, std::string shell)
     }
     execvp( this->shell.c_str(), argv.data() );
   }
-
-
-
 
 }
 
@@ -485,6 +480,9 @@ void Session::process_script_line()
     { // skip comments
       state.script_line_it++;
       continue;
+
+      // process commands here
+      
     }
 
     break;

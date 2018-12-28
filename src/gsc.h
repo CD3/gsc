@@ -10,6 +10,7 @@
 
 
 #include <termios.h>
+#include <sys/ioctl.h>
 #include <exception>
 #include <map>
 #include <thread>
@@ -35,7 +36,9 @@ struct SessionState
   pid_t slavePID = -2;
   bool shutdown = false;
 
+
   termios terminal_settings;
+  winsize window_size;
 
   std::vector<std::string>::iterator script_line_it;
   std::string::iterator line_character_it;

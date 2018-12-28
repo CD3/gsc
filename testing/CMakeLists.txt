@@ -57,7 +57,7 @@ add_custom_target( PexpectTests ALL DEPENDS ${binDir}/PexpectTests )
 add_custom_command(
   OUTPUT ${binDir}/PexpectTests
   COMMAND ${CMAKE_COMMAND} -E copy_directory
-  ${CMAKE_SOURCE_DIR}/testing/PexpectTests ${binDir}/PexpectTests
+  ${CMAKE_CURRENT_SOURCE_DIR}/PexpectTests ${binDir}/PexpectTests
   DEPENDS rebuild)
 add_custom_command( OUTPUT rebuild COMMAND cmake -E echo )
 
