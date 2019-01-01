@@ -7,7 +7,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules"
 
 # Boost libraries
 set(Boost_USE_STATIC_LIBS ON)
-find_package( Boost REQUIRED COMPONENTS program_options filesystem log )
+find_package( Boost REQUIRED COMPONENTS filesystem log )
 
 add_library( libgsc )
 target_sources(
@@ -21,7 +21,7 @@ target_include_directories( libgsc
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
 )
-target_link_libraries( libgsc PUBLIC Boost::boost Boost::program_options Boost::filesystem Boost::log )
+target_link_libraries( libgsc PUBLIC Boost::boost Boost::filesystem Boost::log )
 set_target_properties( libgsc PROPERTIES CXX_STANDARD 17 )
 
 
