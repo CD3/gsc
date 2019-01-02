@@ -11,6 +11,7 @@
 
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <exception>
 #include <map>
 #include <thread>
@@ -32,9 +33,14 @@ struct SessionState
   OutputMode output_mode = OutputMode::ALL;
   int masterfd = -2;
   int slavefd = -2;
+
   char *slave_device_name = NULL;
   pid_t slavePID = -2;
   bool shutdown = false;
+
+  int monitor_port = 3000;
+  int monitor_serverfd = -2;
+  std::vector<int> monitorfds;
 
 
   termios terminal_settings;
@@ -66,6 +72,8 @@ struct Session
   std::vector<std::string> cleanup_commands;
 
   std::thread slave_output_thread;
+  std::thread monitor_connection_requests_thread;
+  std::thread monitor_output_thread;
 
 
   SessionScript script;
@@ -82,10 +90,17 @@ struct Session
   int get_from_slave(char& c);
   int send_to_slave(char c);
 
+  int send_state_to_monitor(int fd);
+
+  int daemon_accept_monitor_connections();
+
+  void daemon_process_monitor_requests();
+
+
   void process_user_input();
   void process_script_line();
 
-  void process_slave_output();
+  void daemon_process_slave_output();
 
 
   void init_shell_args();

@@ -3,16 +3,20 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <sstream>
 
 #include <boost/log/trivial.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <sys/poll.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <netinet/in.h>
 
 #include "./gsc.h"
 
@@ -131,6 +135,38 @@ Session::Session(std::string filename, std::string shell)
     execvp( this->shell.c_str(), argv.data() );
   }
 
+  if(amParent())
+  {
+    // setup socket to listen for connections from monitors
+    BOOST_LOG_TRIVIAL(debug) << "Creating file descriptor for incoming monitor connections";
+    state.monitor_serverfd = socket( AF_INET, SOCK_STREAM, 0 );
+    BOOST_LOG_TRIVIAL(debug) << "  Monitor server fd: " << state.monitor_serverfd;
+
+    sockaddr_in address;
+    int addrlen = sizeof(address);
+    memset( &address, 0, addrlen ); // set memory to zero
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( state.monitor_port );
+
+    BOOST_LOG_TRIVIAL(debug) << "  Binding monitor server to port "<<state.monitor_port;
+
+    if( state.monitor_serverfd < 0 )
+      throw std::runtime_error("Could not created socket for monitor");
+    if(bind(state.monitor_serverfd, (sockaddr *)&address, addrlen) == -1)
+      throw std::runtime_error("Could not bind socket for monitor");
+    if(listen(state.monitor_serverfd,10) == -1)
+      throw std::runtime_error("Could not listen on socket for monitor");
+    
+
+    monitor_connection_requests_thread = std::thread(&Session::daemon_accept_monitor_connections,this);
+    monitor_output_thread = std::thread(&Session::daemon_process_monitor_requests,this);
+
+    BOOST_LOG_TRIVIAL(debug) << "Monitor server setup.";
+
+
+  }
+
 }
 
 Session::~Session()
@@ -138,7 +174,12 @@ Session::~Session()
   BOOST_LOG_TRIVIAL(debug) << "Session::~Session called";
   state.shutdown = true;
   slave_output_thread.join();
+  monitor_connection_requests_thread.join();
+  monitor_output_thread.join();
   close(state.masterfd);
+  for( auto fd : state.monitorfds )
+    close(fd);
+  close(state.monitor_serverfd);
   tcsetattr(0,TCSANOW,&terminal_settings);
   BOOST_LOG_TRIVIAL(debug) << "Session::~Session finished";
 }
@@ -159,7 +200,7 @@ int Session::run()
   {
     // create a thread to process output from the
     // slave device.
-    slave_output_thread = std::thread(&Session::process_slave_output,this);
+    slave_output_thread = std::thread(&Session::daemon_process_slave_output,this);
     // some vars for processing
     // return codes, input chars, and output chars.
     int rc;
@@ -176,7 +217,6 @@ int Session::run()
       }
       send_to_slave('\r');
     }
-
     // process script and user input
     state.script_line_it = this->script.lines.begin();
     while(state.script_line_it != this->script.lines.end())
@@ -215,6 +255,7 @@ int Session::run()
         process_user_input();
         if( state.line_status == LineStatus::LOADED )
           send_to_slave('\r');
+
       }
 
       state.script_line_it++;
@@ -285,6 +326,38 @@ int Session::send_to_slave(char c)
   return write(state.masterfd,&c,1);
 }
 
+int Session::send_state_to_monitor(int fd)
+{
+  boost::property_tree::ptree state_t;
+  std::stringstream state_s;
+  
+  if( state.input_mode == UserInputMode::INSERT )
+    state_t.put("input mode","I");
+  else if( state.input_mode == UserInputMode::COMMAND )
+    state_t.put("input mode","C");
+  else if( state.input_mode == UserInputMode::PASSTHROUGH )
+    state_t.put("input mode","P");
+
+  if( state.script_line_it - script.lines.begin() < script.lines.size() )
+    state_t.put("current line", *state.script_line_it);
+  else
+    state_t.put("current line", "None");
+
+  if( state.script_line_it - script.lines.begin() > 0 )
+    state_t.put("previous line", *(state.script_line_it-1));
+  else
+    state_t.put("previous line", "None");
+
+  if( state.script_line_it - script.lines.begin() < script.lines.size() - 1 )
+    state_t.put("next line", *(state.script_line_it+1));
+  else
+    state_t.put("next line", "None");
+
+  write_json(state_s,state_t);
+
+  write(fd, state_s.str().c_str(), state_s.str().size() );
+}
+
 void Session::init_shell_args()
 {
   if( boost::algorithm::ends_with( this->shell, "bash" )
@@ -294,32 +367,6 @@ void Session::init_shell_args()
   {
     shell_args.push_back("-i");
   }
-}
-
-void Session::process_slave_output()
-{
-  char ch;
-  int rc;
-  // use a poll to check for data from the slave
-  pollfd polls;
-  polls.fd = state.masterfd;
-  polls.events = POLLIN;
-  while(!state.shutdown)
-  {
-    while( rc = poll(&polls,1,0) )
-    {
-      if(rc < 0)
-        throw std::runtime_error("There was a problem polling masterfd.");
-
-      get_from_slave(ch);
-      // check if slave output should be printed
-      send_to_stdout(ch);
-    }
-  }
-  
-
-
-  return;
 }
 
 void Session::process_user_input()
@@ -490,7 +537,72 @@ void Session::process_script_line()
 
 }
 
+void Session::daemon_process_slave_output()
+{
+  char ch;
+  int rc;
+  // use a poll to check for data from the slave
+  pollfd polls;
+  polls.fd = state.masterfd;
+  polls.events = POLLIN;
+  while(!state.shutdown)
+  {
+    while( rc = poll(&polls,1,0) )
+    {
+      if(rc < 0)
+        throw std::runtime_error("There was a problem polling masterfd.");
+
+      get_from_slave(ch);
+      // check if slave output should be printed
+      send_to_stdout(ch);
+    }
+  }
   
 
 
+  return;
+}
 
+int Session::daemon_accept_monitor_connections()
+{
+  int fd;
+
+  int rc;
+  // use a poll to check for incoming connections
+  pollfd polls;
+  polls.fd = state.monitor_serverfd;
+  polls.events = POLLIN;
+
+  while(!state.shutdown)
+  {
+    while( rc = poll(&polls,1,0) )
+    {
+      if(rc < 0)
+        throw std::runtime_error("There was a problem polling masterfd.");
+
+      fd = accept( state.monitor_serverfd, NULL, 0 );
+      BOOST_LOG_TRIVIAL(debug) << "Accepting incoming connection from monitor";
+      if( fd == -1 )
+        throw std::runtime_error("Error accepting incoming request from monitor client.");
+      BOOST_LOG_TRIVIAL(debug) << "  Monitor fd: " << fd;
+      state.monitorfds.push_back(fd);
+    }
+  }
+}
+
+void Session::daemon_process_monitor_requests()
+{
+  int rc;
+  std::vector<pollfd> polls;
+
+  while(!state.shutdown)
+  {
+    for( auto fd: state.monitorfds )
+      send_state_to_monitor(fd);
+    std::this_thread::sleep_for( std::chrono::seconds(1) );
+  }
+  
+
+
+  return;
+}

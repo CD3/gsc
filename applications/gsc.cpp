@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
     ("help,h"            , "print help message")
     ("debug,d"           , "debug mode. print everything.")
     ("shell"             , po::value<string>()->default_value(""), "use shell instead of default.")
+    ("monitor-port"      , po::value<int>()->default_value(3000), "port to use for monitor socket connections.")
     ("setup-script"      , po::value<vector<string>>()->composing(), "may be given multiple times. executables that will be ran before the session starts.")
     ("cleanup-script"    , po::value<vector<string>>()->composing(), "may be given multiple times. executable that will be ran after the session finishes.")
     ("setup-command"     , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
@@ -132,6 +133,7 @@ int main(int argc, char *argv[])
 
   // create the session that will run the script
   Session session(session_filename,vm["shell"].as<string>());
+  session.state.monitor_port = vm["monitor-port"].as<int>();
 
   // configure the session
   if( vm.count("setup-command") > 0 )
@@ -145,9 +147,7 @@ int main(int argc, char *argv[])
     for( auto &s : vm["cleanup-command"].as<vector<string>>() )
       session.cleanup_commands.push_back(s);
   }
-  
 
-  
   try {
     for( auto &s : setup_scripts )
       process::system(s.c_str());
