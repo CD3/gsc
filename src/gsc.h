@@ -12,6 +12,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <exception>
 #include <map>
 #include <thread>
@@ -20,7 +21,7 @@
 enum class InteractiveMode {ON, OFF};
 enum class ReturnMode {AUTO,MANUAL};
 enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH};
-enum class LineStatus {EMPTY, INPROCESS, LOADED};
+enum class LineStatus {EMPTY, INPROCESS, LOADED, RELOAD};
 enum class OutputMode {ALL, NONE, FILTERED};
 
 class return_exception : public std::exception {};
@@ -40,7 +41,6 @@ struct SessionState
 
   int monitor_port = 3000;
   int monitor_serverfd = -2;
-  std::vector<int> monitorfds;
 
 
   termios terminal_settings;
@@ -72,8 +72,7 @@ struct Session
   std::vector<std::string> cleanup_commands;
 
   std::thread slave_output_thread;
-  std::thread monitor_connection_requests_thread;
-  std::thread monitor_output_thread;
+  std::thread monitor_handler_thread;
 
 
   SessionScript script;
@@ -90,9 +89,7 @@ struct Session
   int get_from_slave(char& c);
   int send_to_slave(char c);
 
-  int send_state_to_monitor(int fd);
-
-  int daemon_accept_monitor_connections();
+  int send_state_to_monitor(sockaddr_in*);
 
   void daemon_process_monitor_requests();
 
@@ -107,6 +104,8 @@ struct Session
 
   bool amParent();
   bool amChild();
+
+  bool isComment(std::string);
 
 };
 

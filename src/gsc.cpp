@@ -139,11 +139,11 @@ Session::Session(std::string filename, std::string shell)
   {
     // setup socket to listen for connections from monitors
     BOOST_LOG_TRIVIAL(debug) << "Creating file descriptor for incoming monitor connections";
-    state.monitor_serverfd = socket( AF_INET, SOCK_STREAM, 0 );
+    state.monitor_serverfd = socket( AF_INET, SOCK_DGRAM, 0 );
     BOOST_LOG_TRIVIAL(debug) << "  Monitor server fd: " << state.monitor_serverfd;
 
     sockaddr_in address;
-    int addrlen = sizeof(address);
+    socklen_t addrlen = sizeof(address);
     memset( &address, 0, addrlen ); // set memory to zero
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -155,14 +155,10 @@ Session::Session(std::string filename, std::string shell)
       throw std::runtime_error("Could not created socket for monitor");
     if(bind(state.monitor_serverfd, (sockaddr *)&address, addrlen) == -1)
       throw std::runtime_error("Could not bind socket for monitor");
-    if(listen(state.monitor_serverfd,10) == -1)
-      throw std::runtime_error("Could not listen on socket for monitor");
-    
 
-    monitor_connection_requests_thread = std::thread(&Session::daemon_accept_monitor_connections,this);
-    monitor_output_thread = std::thread(&Session::daemon_process_monitor_requests,this);
+    monitor_handler_thread = std::thread(&Session::daemon_process_monitor_requests,this);
 
-    BOOST_LOG_TRIVIAL(debug) << "Monitor server setup.";
+    BOOST_LOG_TRIVIAL(debug) << "Monitor server ready.";
 
 
   }
@@ -174,11 +170,8 @@ Session::~Session()
   BOOST_LOG_TRIVIAL(debug) << "Session::~Session called";
   state.shutdown = true;
   slave_output_thread.join();
-  monitor_connection_requests_thread.join();
-  monitor_output_thread.join();
+  monitor_handler_thread.join();
   close(state.masterfd);
-  for( auto fd : state.monitorfds )
-    close(fd);
   close(state.monitor_serverfd);
   tcsetattr(0,TCSANOW,&terminal_settings);
   BOOST_LOG_TRIVIAL(debug) << "Session::~Session finished";
@@ -237,6 +230,9 @@ int Session::run()
 
           // process user input
           process_user_input();
+          if(state.line_status == LineStatus::RELOAD)
+            break; // exit without processing char
+
           // need to call this AFTER user input because
           // the user might change the iterator
           ch = *state.line_character_it;
@@ -245,6 +241,8 @@ int Session::run()
 
           state.line_character_it++;
         }
+        if(state.line_status == LineStatus::RELOAD)
+          break; // go back to top and start over
 
         state.line_status = LineStatus::LOADED;
 
@@ -258,7 +256,8 @@ int Session::run()
 
       }
 
-      state.script_line_it++;
+      if(state.line_status != LineStatus::RELOAD)
+        state.script_line_it++; // don't advance line pointer if we need to reload
     }
 
     // run cleanup commands first
@@ -297,6 +296,14 @@ bool Session::amParent()
   return state.slavePID > 0;
 }
 
+bool Session::isComment(std::string line)
+{
+  boost::trim(line);
+  if( boost::starts_with(line, "#") )
+    return true;
+  return false;
+}
+
 int Session::get_from_stdin(char& c)
 {
   return read(0,&c,1);
@@ -324,38 +331,6 @@ int Session::send_to_slave(char c)
     c = '\r';
 
   return write(state.masterfd,&c,1);
-}
-
-int Session::send_state_to_monitor(int fd)
-{
-  boost::property_tree::ptree state_t;
-  std::stringstream state_s;
-  
-  if( state.input_mode == UserInputMode::INSERT )
-    state_t.put("input mode","I");
-  else if( state.input_mode == UserInputMode::COMMAND )
-    state_t.put("input mode","C");
-  else if( state.input_mode == UserInputMode::PASSTHROUGH )
-    state_t.put("input mode","P");
-
-  if( state.script_line_it - script.lines.begin() < script.lines.size() )
-    state_t.put("current line", *state.script_line_it);
-  else
-    state_t.put("current line", "None");
-
-  if( state.script_line_it - script.lines.begin() > 0 )
-    state_t.put("previous line", *(state.script_line_it-1));
-  else
-    state_t.put("previous line", "None");
-
-  if( state.script_line_it - script.lines.begin() < script.lines.size() - 1 )
-    state_t.put("next line", *(state.script_line_it+1));
-  else
-    state_t.put("next line", "None");
-
-  write_json(state_s,state_t);
-
-  write(fd, state_s.str().c_str(), state_s.str().size() );
 }
 
 void Session::init_shell_args()
@@ -418,6 +393,30 @@ void Session::process_user_input()
           else if(state.output_mode == OutputMode::ALL)
             state.output_mode = OutputMode::NONE;
 
+        }
+
+        if( c == 'j' ) // go to next line
+        {
+          if(state.script_line_it < script.lines.end()-1)
+            state.script_line_it++;
+          state.line_status = LineStatus::RELOAD;
+          break;
+        }
+        if( c == 'k' ) // backup to previous line
+        {
+          // if the previous line is a comment
+          // it will be immediatly skipped. so we need to 
+          // backup until we read a non-comment, or the
+          // first line.
+          do
+          {
+            if( state.script_line_it > script.lines.begin() )
+              state.script_line_it--;
+            else
+              break;
+          } while( isComment( *state.script_line_it ) );
+          state.line_status = LineStatus::RELOAD;
+          break;
         }
 
         if( c == '\r' ) // return back to caller
@@ -520,10 +519,8 @@ void Session::process_script_line()
 
   while(state.script_line_it != this->script.lines.end())
   {
-    std::string line = *state.script_line_it;
-    std::string trimmed_line = boost::trim_copy(line);
 
-    if( boost::starts_with(trimmed_line, "#") )
+    if( isComment( *state.script_line_it ) )
     { // skip comments
       state.script_line_it++;
       continue;
@@ -563,46 +560,70 @@ void Session::daemon_process_slave_output()
   return;
 }
 
-int Session::daemon_accept_monitor_connections()
+void Session::daemon_process_monitor_requests()
 {
-  int fd;
-
   int rc;
-  // use a poll to check for incoming connections
+
   pollfd polls;
   polls.fd = state.monitor_serverfd;
   polls.events = POLLIN;
+
+  int n;
+  sockaddr_in address;
+  socklen_t addrlen;
+  const size_t REQ_BUF_SIZE = 10;
+  char buffer[REQ_BUF_SIZE];
+  
 
   while(!state.shutdown)
   {
     while( rc = poll(&polls,1,0) )
     {
       if(rc < 0)
-        throw std::runtime_error("There was a problem polling masterfd.");
+        throw std::runtime_error("There was a problem polling monitor socket.");
 
-      fd = accept( state.monitor_serverfd, NULL, 0 );
-      BOOST_LOG_TRIVIAL(debug) << "Accepting incoming connection from monitor";
-      if( fd == -1 )
-        throw std::runtime_error("Error accepting incoming request from monitor client.");
-      BOOST_LOG_TRIVIAL(debug) << "  Monitor fd: " << fd;
-      state.monitorfds.push_back(fd);
+      n = recvfrom( state.monitor_serverfd, buffer, REQ_BUF_SIZE, 0, (sockaddr*)&address, &addrlen);
+      buffer[REQ_BUF_SIZE-1] = '\0';
+      BOOST_LOG_TRIVIAL(debug) << "Received " << n << " bytes from monitor: " << buffer;
+
+      send_state_to_monitor( &address );
     }
   }
-}
-
-void Session::daemon_process_monitor_requests()
-{
-  int rc;
-  std::vector<pollfd> polls;
-
-  while(!state.shutdown)
-  {
-    for( auto fd: state.monitorfds )
-      send_state_to_monitor(fd);
-    std::this_thread::sleep_for( std::chrono::seconds(1) );
-  }
-  
-
 
   return;
 }
+
+int Session::send_state_to_monitor(sockaddr_in* address)
+{
+  boost::property_tree::ptree state_t;
+  std::stringstream state_s;
+  
+  if( state.input_mode == UserInputMode::INSERT )
+    state_t.put("input mode","I");
+  else if( state.input_mode == UserInputMode::COMMAND )
+    state_t.put("input mode","C");
+  else if( state.input_mode == UserInputMode::PASSTHROUGH )
+    state_t.put("input mode","P");
+
+  if( state.script_line_it - script.lines.begin() < script.lines.size() )
+    state_t.put("current line", *state.script_line_it);
+  else
+    state_t.put("current line", "None");
+
+  if( state.script_line_it - script.lines.begin() > 0 )
+    state_t.put("previous line", *(state.script_line_it-1));
+  else
+    state_t.put("previous line", "None");
+
+  if( state.script_line_it - script.lines.begin() < script.lines.size() - 1 )
+    state_t.put("next line", *(state.script_line_it+1));
+  else
+    state_t.put("next line", "None");
+
+  write_json(state_s,state_t);
+
+  sendto(state.monitor_serverfd, state_s.str().c_str(), state_s.str().size(), 0, (sockaddr*)address, sizeof(sockaddr_in) );
+}
+
+
+

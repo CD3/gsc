@@ -79,16 +79,20 @@ def input_handler(key):
     if key in ('q', 'Q'):
         raise urwid.ExitMainLoop()
 
+
 def file_handler():
-  text = monitor.recv(4096)
+  text,addr = monitor.recvfrom(4096)
 
   try:
     status = json.loads(text)
     input_mode_display.render_text(**status)
     line_status_display.render_text(**status)
   except Exception as e:
-    monitor_display.render_text(message="There was an error:\n"+str(e))
+    monitor_display.render_text(message="There was an error:\n"+str(e)+"\n"+text)
 
+def poll( loop, data ):
+  monitor.sendto(b'update',(host,int(port)))
+  loop.set_alarm_in(0.1,poll,None)
   
 
 palette = [
@@ -109,9 +113,8 @@ if __name__ == "__main__":
                       help="Unix domain socket that gsc process is writing to." )
   args = parser.parse_args()
 
-  monitor = socket.socket()
+  monitor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   host,port = args.gsc_socket.split(":")
-  monitor.connect( (host,int(port)) )
 
 
 
@@ -137,6 +140,8 @@ if __name__ == "__main__":
 
   loop = urwid.MainLoop(pile, palette=palette, unhandled_input=input_handler)
   loop.watch_file(monitor,file_handler)
+  loop.set_alarm_in(0.1,poll,None)
+  
   loop.run()
 
   monitor.close()

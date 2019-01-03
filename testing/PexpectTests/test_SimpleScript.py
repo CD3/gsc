@@ -203,6 +203,44 @@ def test_SilenseOutput():
   assert child.sendcontrol('m') == 1
   assert child.expect("^\r\nhi") == 0
 
+def test_ForwardBackward():
+  with open("script.sh", "w") as f:
+    f.write("echo 1 \n");
+    f.write("echo 2 \n");
+    f.write("echo 3 \n");
 
+  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
+  child.expect(r"\$ ")
 
+  # skip first line
+  child.send("")
+  child.send("j")
+  child.send("i")
+
+  child.send("aaaaaa")
+  assert child.expect("echo 2") == 0
+
+  # go back to fist line
+  child.send("")
+  child.send("kk")
+  child.send("i")
+
+  child.send("aaaaaa")
+  assert child.expect("echo 1") == 0
+
+  # skip to end
+  child.send("")
+  child.send("jjjjjj")
+  child.send("i")
+
+  child.send("aaaaaa")
+  assert child.expect("echo 3") == 0
+
+  # go back to begining
+  child.send("")
+  child.send("kkk")
+  child.send("i")
+
+  child.send("aaaaaa")
+  assert child.expect("echo 1") == 0
 
