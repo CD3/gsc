@@ -18,8 +18,7 @@
 #include <thread>
 
 
-enum class InteractiveMode {ON, OFF};
-enum class ReturnMode {AUTO,MANUAL};
+enum class AutoPilot {ON,OFF};
 enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH};
 enum class LineStatus {EMPTY, INPROCESS, LOADED, RELOAD};
 enum class OutputMode {ALL, NONE, FILTERED};
@@ -32,6 +31,8 @@ struct SessionState
   UserInputMode input_mode = UserInputMode::INSERT;
   LineStatus line_status = LineStatus::EMPTY;
   OutputMode output_mode = OutputMode::ALL;
+  AutoPilot auto_pilot = AutoPilot::OFF;
+
   int masterfd = -2;
   int slavefd = -2;
 
@@ -42,6 +43,7 @@ struct SessionState
   int monitor_port = 3000;
   int monitor_serverfd = -2;
 
+  int auto_pilot_pause_milliseconds = 10;
 
   termios terminal_settings;
   winsize window_size;

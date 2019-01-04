@@ -346,6 +346,12 @@ void Session::init_shell_args()
 
 void Session::process_user_input()
 {
+  if(state.auto_pilot == AutoPilot::ON)
+  {
+    std::this_thread::sleep_for( std::chrono::milliseconds(state.auto_pilot_pause_milliseconds) );
+    return;
+  }
+
   char c;
   bool cont;
   // this function would probably be
