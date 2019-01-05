@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 import urwid
 import os, json, time, socket
 
@@ -71,7 +72,23 @@ class TemplateDisplay(urwid.Text):
     self.template = template
 
   def render_text(self,*args,**kwargs):
-    text = fmt( self.template, *args, **kwargs )
+    if isinstance( self.template, list):
+      text = list()
+      for t in self.template:
+
+        if isinstance(t,tuple):
+          text.append((t[0],fmt( t[1], *args, **kwargs )))
+        else:
+          pass
+          text.append(fmt( t, *args, **kwargs ))
+
+      self.set_text(text)
+    else:
+      if isinstance(self.template,tuple):
+        text = self.template[0],fmt( self.template[1], *args, **kwargs )
+      else:
+        text = fmt( self.template, *args, **kwargs )
+
     self.set_text(text)
 
 
@@ -84,11 +101,13 @@ def file_handler():
   text,addr = monitor.recvfrom(4096)
 
   try:
+    monitor_display.render_text(message="None")
     status = json.loads(text)
+    status['current line remainder'] = status['current line'].replace( status['current line progress'], "" )
     input_mode_display.render_text(**status)
     line_status_display.render_text(**status)
   except Exception as e:
-    monitor_display.render_text(message="There was an error:\n"+str(e)+"\n"+text)
+    monitor_display.render_text(message="There was an error:\n"+str(e)+"\n"+text.decode('utf-8'))
 
 def poll( loop, data ):
   monitor.sendto(b'update',(host,int(port)))
@@ -97,8 +116,10 @@ def poll( loop, data ):
 
 palette = [
     ('divider','','','','g27','#a06'),
-    ('ghost','','','','g27','#a06'),
-    ('red','','','','g27','#a06')
+    ('lg','light gray','default'),
+    ('dg','dark gray','default'),
+    ('dr','dark red','default'),
+    ('lr','light red','default'),
     ]
 
 
@@ -127,7 +148,12 @@ if __name__ == "__main__":
 
   monitor_display = TemplateDisplay("Messages:\n{message}")
 
-  line_status_display = TemplateDisplay("Previous: {previous line}\nCurrent: {current line}\nNext: {next line}")
+  line_status_display = TemplateDisplay([('dg', "P: {previous line}\n"),
+                                         ('dr', "C: {current line progress}"),
+                                         ('lr', "{current line remainder}\n"),
+                                         ('dg', "N: {next line}\n"),
+                                         "\n#: {current line number}/{total number lines}\n"
+                                       ])
   input_mode_display  = TemplateDisplay("Input Mode: {input mode}")
 
 
