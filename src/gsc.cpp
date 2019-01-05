@@ -603,6 +603,7 @@ int Session::send_state_to_monitor(sockaddr_in* address)
 {
   boost::property_tree::ptree state_t;
   std::stringstream state_s;
+  std::string tmp;
   
   if( state.input_mode == UserInputMode::INSERT )
     state_t.put("input mode","I");
@@ -610,6 +611,8 @@ int Session::send_state_to_monitor(sockaddr_in* address)
     state_t.put("input mode","C");
   else if( state.input_mode == UserInputMode::PASSTHROUGH )
     state_t.put("input mode","P");
+
+
 
   if( state.script_line_it - script.lines.begin() < script.lines.size() )
     state_t.put("current line", *state.script_line_it);
@@ -625,6 +628,13 @@ int Session::send_state_to_monitor(sockaddr_in* address)
     state_t.put("next line", *(state.script_line_it+1));
   else
     state_t.put("next line", "None");
+
+  
+  tmp = std::string(state.script_line_it->begin(), state.line_character_it);
+  state_t.put("current line progress", tmp);
+
+  state_t.put("current line number", 1 + state.script_line_it - script.lines.begin() );
+  state_t.put("total number lines", script.lines.size() );
 
   write_json(state_s,state_t);
 
