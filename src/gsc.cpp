@@ -614,7 +614,7 @@ int Session::send_state_to_monitor(sockaddr_in* address)
 
 
 
-  if( state.script_line_it - script.lines.begin() < script.lines.size() )
+  if( script.lines.end() - state.script_line_it > 0 )
     state_t.put("current line", *state.script_line_it);
   else
     state_t.put("current line", "None");
@@ -624,14 +624,21 @@ int Session::send_state_to_monitor(sockaddr_in* address)
   else
     state_t.put("previous line", "None");
 
-  if( state.script_line_it - script.lines.begin() < script.lines.size() - 1 )
+  if( script.lines.end() - state.script_line_it > 1 )
     state_t.put("next line", *(state.script_line_it+1));
   else
     state_t.put("next line", "None");
 
   
-  tmp = std::string(state.script_line_it->begin(), state.line_character_it);
-  state_t.put("current line progress", tmp);
+  if( script.lines.end() - state.script_line_it > 0 )
+  {
+    tmp = std::string(state.script_line_it->begin(), state.line_character_it);
+    state_t.put("current line progress", tmp);
+  }
+  else
+  {
+    state_t.put("current line progress", "");
+  }
 
   state_t.put("current line number", 1 + state.script_line_it - script.lines.begin() );
   state_t.put("total number lines", script.lines.size() );
