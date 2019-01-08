@@ -2,6 +2,15 @@
 
 A simple utility that allows you to run guided scripts on Linux, useful for giving command line demonstrations.
 
+**`gsc` has been rewritten**
+
+`gsc` has been completely rewritten from scatch. New features include:
+
+- Modal (insert, command, and pass through mode).
+- Support for monitoring sessions via socket connection.
+- "simulated typing" has been replaced with actual typing. Just hit a key (in insert mode) to have the next character loaded.
+- (More) graceful failure.
+
 ## Description
 
 `gsc` creates a pseudo terminal and runs a script by passing each line of the script to the pseudo terminal so that
