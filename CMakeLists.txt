@@ -34,7 +34,7 @@ target_link_libraries( gsc
   )
 
 install( TARGETS gsc DESTINATION bin )
-install( FILES bin/gsc-mon.py PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE DESTINATION bin )
+install( FILES bin/gsc-mon.py PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE DESTINATION bin )
 
 
 add_subdirectory(testing)
