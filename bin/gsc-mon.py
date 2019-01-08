@@ -6,6 +6,15 @@ import pyparsing
 from argparse import ArgumentParser
 
 
+# mapping for displaying unprintable keys
+keymap = [ ('\t' , '<Tab>')
+          ,('\r'    , '<Enter>')
+          ,(r'OA' , '<Up:3>')
+          ,(r'OB' , '<Down:3>')
+          ,(r'OC' , '<Right:3>')
+          ,(r'OD' , '<Left:3>')
+          ,(r''   , '<Esc>')
+         ]
 
 
 
@@ -103,6 +112,12 @@ def file_handler():
   try:
     monitor_display.render_text(message="None")
     status = json.loads(text)
+
+    status['current line'] = expand_special_chars(status['current line'])
+    status['current line progress'] = expand_special_chars(status['current line progress'])
+    status['next line'] = expand_special_chars(status['next line'])
+    status['previous line'] = expand_special_chars(status['previous line'])
+
     status['current line remainder'] = status['current line'].replace( status['current line progress'], "" )
     input_mode_display.render_text(**status)
     line_status_display.render_text(**status)
@@ -112,6 +127,14 @@ def file_handler():
 def poll( loop, data ):
   monitor.sendto(b'update',(host,int(port)))
   loop.set_alarm_in(0.1,poll,None)
+
+def expand_special_chars(text):
+
+  for km in keymap:
+    text = text.replace(km[0],km[1])
+
+  return text
+
   
 
 palette = [
