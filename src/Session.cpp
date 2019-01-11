@@ -1,5 +1,6 @@
 #include "./Session.hpp"
 
+#include <iostream>
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/poll.h>
@@ -124,6 +125,9 @@ Session::Session(std::string filename, std::string shell)
     // set terminal to raw mode
     cfmakeraw(&(state.terminal_settings));
     tcsetattr(0,TCSANOW,&(state.terminal_settings));
+
+    // set the slave window size to match parents
+    sync_window_size();
   }
 
 }
@@ -351,6 +355,8 @@ void Session::process_user_input()
 
         if( c == 'q' ) // quit program
           shutdown();
+        if( c == 'r' ) // resize window 
+          sync_window_size();
         if( c == 'i' ) // switch to insert mode
         {
           state.input_mode = UserInputMode::INSERT;
@@ -635,6 +641,14 @@ int Session::send_state_to_monitor(sockaddr_in* address)
   write_json(state_s,state_t);
 
   sendto(state.monitor_serverfd, state_s.str().c_str(), state_s.str().size(), 0, (sockaddr*)address, sizeof(sockaddr_in) );
+}
+
+void Session::sync_window_size()
+{
+    if( ioctl(0, TIOCGWINSZ, &state.window_size) == -1 )
+      throw std::runtime_error("Could not get current window size");
+    if( ioctl(state.masterfd, TIOCSWINSZ, &state.window_size) == -1 )
+      throw std::runtime_error("Could not set psuedo-terminal window size");
 }
 
 void Session::shutdown()

@@ -61,6 +61,8 @@ struct Session
 
   bool isComment(std::string);
 
+  void sync_window_size();
+
   void shutdown();
 
 };
