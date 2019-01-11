@@ -2,12 +2,23 @@ import pexpect
 import pytest
 import time
 
+def print_output(proc):
+  proc.expect(".")
+  print(proc.before)
+  print(proc.after)
+
 def test_SimpleScriptInsertMode():
   with open("script.sh", "w") as f:
     f.write("echo hi\n");
 
-  child = pexpect.spawn("./gsc script.sh --shell bash")
-  child.expect(r"\$ ")
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  # the prompt will be printed 3 times:
+  # once when the setup command is echo'ed by the shell
+  # once when the new prompt is printed by the shell
+  # and one more time because the setup-command is loaded before the shell takes over
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
 
   assert child.send("a") == 1
   assert child.expect("e") == 0
@@ -39,7 +50,7 @@ def test_SimpleScriptInsertMode():
 
   assert child.expect("hi\r\n") == 0
 
-  child.expect(r"\$ ")
+  child.expect(r"\$>>> ")
 
   child.sendcontrol(r"m")
   assert child.expect("\r\n") == 0
@@ -60,8 +71,10 @@ def test_BackspaceInInsertMode():
   with open("script.sh", "w") as f:
     f.write("echo hi\n");
 
-  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
-  child.expect(r"\$ ")
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
 
   assert child.send("a") == 1
   assert child.expect("e") == 0
@@ -111,8 +124,10 @@ def test_CommentsAreIgnored():
     f.write("# comment\n");
     f.write("echo\n");
 
-  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
-  child.expect(r"\$ ")
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
 
   assert child.send("aaaa") == 4
   assert child.expect("echo") == 0
@@ -130,8 +145,10 @@ def test_CommentsAreIgnored():
     f.write(" #comment 3\n");
     f.write("echo\n");
 
-  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
-  child.expect(r"\$ ")
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
 
   assert child.send("aaaaaaaaaaa") == 11
   assert child.expect("echo") == 0
@@ -144,8 +161,12 @@ def test_CommandModeQuit():
   with open("script.sh", "w") as f:
     f.write("echo\n");
 
-  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
-  child.expect(r"\$ ")
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  print(child.before)
+  print(child.after)
   assert child.send("") == 1
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
@@ -167,8 +188,10 @@ def test_SilenseOutput():
     f.write("ls -l\n");
     f.write("echo hi\n");
 
-  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
-  child.expect(r"\$ ")
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
 
   assert child.send("") == 1
   assert child.send("s") == 1
@@ -209,8 +232,10 @@ def test_ForwardBackward():
     f.write("echo 2 \n");
     f.write("echo 3 \n");
 
-  child = pexpect.spawn("./gsc script.sh --shell bash",timeout=1)
-  child.expect(r"\$ ")
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
 
   # skip first line
   child.send("")

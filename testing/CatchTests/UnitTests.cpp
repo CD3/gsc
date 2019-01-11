@@ -1,10 +1,11 @@
 #include "catch.hpp"
 
+#include "SessionScript.hpp"
+
 #include <iostream>
 #include <fstream>
 #include <boost/filesystem.hpp>
 
-#include "gsc.h"
 
 using namespace std;
 

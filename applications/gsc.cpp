@@ -10,7 +10,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/process.hpp>
 
-#include "./gsc.h"
+#include "Session.hpp"
 
 namespace po = boost::program_options;
 using namespace boost;

@@ -1,59 +1,18 @@
-#include <regex>
-#include <string>
-#include <chrono>
-#include <thread>
-#include <iostream>
-#include <sstream>
+#include "./Session.hpp"
+
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/poll.h>
+
 
 #include <boost/log/trivial.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <sys/poll.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <netinet/in.h>
-
-#include "./gsc.h"
 
 
-/**
- * Render a template string using a context
- */
-std::string render( std::string templ, const Context& context, std::string stag, std::string etag )
-{
-  for( auto &c : context )
-  {
-    std::string pat = stag+c.first+etag;
-    std::regex re(pat);
-    templ = std::regex_replace( templ, re, c.second);
-  }
-
-  return templ;
-}
-
-void SessionScript::load(const std::string& filename)
-{
-  if(!boost::filesystem::exists(filename) || boost::filesystem::is_directory(filename))
-    throw std::runtime_error("No such file "+filename);
-
-  std::ifstream in(filename.c_str());
-
-  std::string line;
-  while( std::getline(in,line) )
-  {
-    lines.push_back(::render(line, this->context,this->render_stag, this->render_etag));
-  }
-  in.close();
-}
-void SessionScript::render()
-{
-  std::transform( this->lines.begin(), this->lines.end(), this->lines.begin(), [this](std::string& s){ return ::render(s,this->context,this->render_stag, this->render_etag); } );
-}
 
 Session::Session(std::string filename, std::string shell)
 {
@@ -371,6 +330,17 @@ void Session::process_user_input()
 
       while(get_from_stdin(c)) // read input until we recognize a command
       {
+        if( c == 3 ) // Ctl-C
+        {
+          // if the user presses Ctl-C, we need to send SIGINT to everybody in our process group
+          kill(0,SIGINT);
+        }
+        if( c == 28 ) // Ctl-\, which means quit
+        {
+          kill(0,SIGQUIT);
+        }
+
+
         if( c == 'q' ) // quit program
           throw return_exception();
         if( c == 'i' ) // switch to insert mode
@@ -445,6 +415,17 @@ void Session::process_user_input()
       for(;;) // start looping
       {
           get_from_stdin(c); // reach char from user
+
+          if( c == 3 ) // Ctl-C
+          {
+            // if the user presses Ctl-C, we need to send SIGINT to everybody in our process group
+            kill(0,SIGINT);
+          }
+          if( c == 28 ) // Ctl-\, which means quit
+          {
+            kill(0,SIGQUIT);
+          }
+
           if( c == 127 ) // Backspace key: send to shell, rewind the line character iterator, and start over
           {
             LineStatus init_line_status = state.line_status;
@@ -647,6 +628,3 @@ int Session::send_state_to_monitor(sockaddr_in* address)
 
   sendto(state.monitor_serverfd, state_s.str().c_str(), state_s.str().size(), 0, (sockaddr*)address, sizeof(sockaddr_in) );
 }
-
-
-
