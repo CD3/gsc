@@ -61,6 +61,8 @@ struct Session
 
   bool isComment(std::string);
 
+  void shutdown();
+
 };
 
 

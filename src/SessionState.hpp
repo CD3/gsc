@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <string>
+#include <atomic>
 
 //#include <termios.h>
 #include <sys/ioctl.h>
@@ -27,7 +28,7 @@ struct SessionState
 
   char *slave_device_name = NULL;
   pid_t slavePID = -2;
-  bool shutdown = false;
+  std::atomic<bool> shutdown;
 
   int monitor_port = 3000;
   int monitor_serverfd = -2;
@@ -39,6 +40,8 @@ struct SessionState
 
   std::vector<std::string>::iterator script_line_it;
   std::string::iterator line_character_it;
+
+  SessionState():shutdown(false){}
 };
 
 

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <csignal>
 #include <boost/program_options.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
@@ -19,6 +20,14 @@ using namespace std;
 std::string manual_text = R"(
 
 )";
+
+void signal_handler(int sig)
+{
+  BOOST_LOG_TRIVIAL(debug) << "Received signal: " << sig;
+
+  BOOST_LOG_TRIVIAL(debug) << "Throwing return_exception";
+  throw return_exception();
+}
 
 int main(int argc, char *argv[])
 {
@@ -134,6 +143,12 @@ int main(int argc, char *argv[])
 
 
   // create and configure the session that will run the script
+  if( std::signal(SIGINT ,signal_handler) == SIG_ERR 
+   || std::signal(SIGQUIT,signal_handler) == SIG_ERR )
+  {
+    throw std::runtime_error("Could not setup signal handler");
+  }
+
   Session session(session_filename,vm["shell"].as<string>());
   session.state.monitor_port = vm["monitor-port"].as<int>();
   if( vm.count("auto") > 0 )
@@ -143,8 +158,6 @@ int main(int argc, char *argv[])
     session.state.auto_pilot_pause_milliseconds = vm["auto-pause"].as<int>();
   }
 
-
-  // configure the session
   if( vm.count("setup-command") > 0 )
   {
     for( auto &s : vm["setup-command"].as<vector<string>>() )
@@ -156,6 +169,9 @@ int main(int argc, char *argv[])
     for( auto &s : vm["cleanup-command"].as<vector<string>>() )
       session.cleanup_commands.push_back(s);
   }
+
+
+
 
   try {
     for( auto &s : setup_scripts )

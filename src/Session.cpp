@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/poll.h>
+#include <sys/wait.h>
 
 
 #include <boost/log/trivial.hpp>
@@ -120,12 +121,17 @@ Session::Session(std::string filename, std::string shell)
     BOOST_LOG_TRIVIAL(debug) << "Monitor server ready.";
 
 
+    // set terminal to raw mode
+    cfmakeraw(&(state.terminal_settings));
+    tcsetattr(0,TCSANOW,&(state.terminal_settings));
   }
 
 }
 
 Session::~Session()
 {
+  // note: only the parent process will run this code.
+  // the child proc has been replaced.
   BOOST_LOG_TRIVIAL(debug) << "Session::~Session called";
   state.shutdown = true;
   slave_output_thread.join();
@@ -133,16 +139,18 @@ Session::~Session()
   close(state.masterfd);
   close(state.monitor_serverfd);
   tcsetattr(0,TCSANOW,&terminal_settings);
+
+  BOOST_LOG_TRIVIAL(debug) << "killing slave process";
+  kill(state.slavePID,SIGKILL);
+  BOOST_LOG_TRIVIAL(debug) << "waiting for slave process";
+  waitpid(state.slavePID,NULL,WNOHANG);
+
   BOOST_LOG_TRIVIAL(debug) << "Session::~Session finished";
 }
 
 int Session::run()
 {
   BOOST_LOG_TRIVIAL(debug) << "Beginning session run.";
-
-  // set terminal to raw mode
-  cfmakeraw(&(state.terminal_settings));
-  tcsetattr(0,TCSANOW,&(state.terminal_settings));
 
   this->script.load( this->filename );
   state.script_line_it = this->script.lines.begin();
@@ -342,7 +350,7 @@ void Session::process_user_input()
 
 
         if( c == 'q' ) // quit program
-          throw return_exception();
+          shutdown();
         if( c == 'i' ) // switch to insert mode
         {
           state.input_mode = UserInputMode::INSERT;
@@ -627,4 +635,11 @@ int Session::send_state_to_monitor(sockaddr_in* address)
   write_json(state_s,state_t);
 
   sendto(state.monitor_serverfd, state_s.str().c_str(), state_s.str().size(), 0, (sockaddr*)address, sizeof(sockaddr_in) );
+}
+
+void Session::shutdown()
+{
+  BOOST_LOG_TRIVIAL(debug) << "Shutdown called.";
+  state.shutdown = true;
+  throw return_exception();
 }
