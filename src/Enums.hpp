@@ -12,6 +12,27 @@ enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH};
 enum class LineStatus {EMPTY, INPROCESS, LOADED, RELOAD};
 enum class OutputMode {ALL, NONE, FILTERED};
 
+enum class CommandModeActions { None
+                              , SwitchToInsertMode
+                              , SwitchToPassthroughMode
+                              , Quit
+                              , Return
+                              , ResizeWindow
+                              , NextLine
+                              , PrevLine
+                              , TurnOffStdout
+                              , TurnOnStdout
+                              , ToggleStdout
+                              };
+enum class InsertModeActions { None
+                             , SwitchToCommandMode
+                             , BackOneCharacter
+                             , SkipOneCharacter
+                             , Return
+                             };
+enum class PassthroughModeActions { None
+                                  , SwitchToCommandMode
+                                  };
 
 
 

@@ -17,6 +17,7 @@ libgsc
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/SessionState.cpp>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/SessionScript.cpp>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.cpp>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/Keybindings.cpp>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/CharTree.cpp>
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/Session.hpp>
@@ -24,6 +25,7 @@ libgsc
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/SessionScript.hpp>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.hpp>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/CharTree.hpp>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/Keybindings.hpp>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/Enums.hpp>
 )
 target_include_directories( libgsc
@@ -41,6 +43,8 @@ target_link_libraries( gsc
   Boost::program_options
   Boost::filesystem
   )
+
+add_executable( show_key applications/show_key.cpp )
 
 install( TARGETS gsc DESTINATION bin )
 install( FILES bin/gsc-mon.py PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE DESTINATION bin )

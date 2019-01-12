@@ -17,6 +17,7 @@
 #include "./SessionState.hpp"
 #include "./SessionScript.hpp"
 #include "./CharTree.hpp"
+#include "./Keybindings.hpp"
 
 struct Session
 {
@@ -27,6 +28,8 @@ struct Session
   std::vector<std::string> cleanup_commands;
 
   CharTree multi_char_keys;
+
+  Keybindings key_bindings;
 
   std::thread slave_output_thread;
   std::thread monitor_handler_thread;

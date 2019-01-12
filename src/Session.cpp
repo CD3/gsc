@@ -365,6 +365,7 @@ void Session::process_user_input()
       // them as commands. this allows the user to modify
       // state.
 
+      CommandModeActions action;
       while(get_from_stdin(c)) // read input until we recognize a command
       {
         if( c == 3 ) // Ctl-C
@@ -377,31 +378,32 @@ void Session::process_user_input()
           kill(0,SIGQUIT);
         }
 
+        key_bindings.get(c,action);
 
-        if( c == 'q' ) // quit program
+        if( action == CommandModeActions::Quit )
           shutdown();
-        if( c == 'r' ) // resize window 
+        if( action == CommandModeActions::ResizeWindow )
           sync_window_size();
-        if( c == 'i' ) // switch to insert mode
+        if( action == CommandModeActions::SwitchToInsertMode )
         {
           state.input_mode = UserInputMode::INSERT;
           break;
         }
-        if( c == 'p' ) // switch to passhthrough mode
+        if( action == CommandModeActions::SwitchToPassthroughMode )
         {
           state.input_mode = UserInputMode::PASSTHROUGH;
           break;
         }
 
-        if( c == 's' ) // swith output mode to 'silent'
+        if( action == CommandModeActions::TurnOffStdout )
         {
           state.output_mode = OutputMode::NONE;
         }
-        if( c == 'v' ) // switch output mode to 'verbose'
+        if( action == CommandModeActions::TurnOnStdout )
         {
           state.output_mode = OutputMode::ALL;
         }
-        if( c == 'o' ) // toggle output mode
+        if( action == CommandModeActions::ToggleStdout )
         {
           if(state.output_mode == OutputMode::NONE)
             state.output_mode = OutputMode::ALL;
@@ -410,14 +412,14 @@ void Session::process_user_input()
 
         }
 
-        if( c == 'j' ) // go to next line
+        if( action == CommandModeActions::NextLine )
         {
           if(state.script_line_it < script.lines.end()-1)
             state.script_line_it++;
           state.line_status = LineStatus::RELOAD;
           break;
         }
-        if( c == 'k' ) // backup to previous line
+        if( action == CommandModeActions::PrevLine )
         {
           // if the previous line is a comment
           // it will be immediatly skipped. so we need to 
@@ -434,7 +436,7 @@ void Session::process_user_input()
           break;
         }
 
-        if( c == '\r' ) // return back to caller
+        if( action == CommandModeActions::Return )
         {
           break;
         }
@@ -451,6 +453,7 @@ void Session::process_user_input()
       // - the user presses Esc. then switch to command mode and start over
       // - a shell line has been loaded. then wait for the user to press Return
       // - the user presses Backspace. then pass Backspace to the shell and back up the line_char_it
+      InsertModeActions action;
       for(;;) // start looping
       {
           get_from_stdin(c); // reach char from user
@@ -465,12 +468,15 @@ void Session::process_user_input()
             kill(0,SIGQUIT);
           }
 
-          if( c == 127 ) // Backspace key: send to shell, rewind the line character iterator, and start over
+          key_bindings.get(c,action);
+
+          if( action == InsertModeActions::BackOneCharacter )
           {
+            // need to: send backspace to shell, rewind the line character iterator, and start over
             LineStatus init_line_status = state.line_status;
             if(state.line_character_it > state.script_line_it->begin())
             { // only delete characters if at least one is loaded.
-              send_to_slave(c);
+              send_to_slave('');
               state.line_character_it--;
               state.line_status = LineStatus::INPROCESS;
             }
@@ -482,14 +488,14 @@ void Session::process_user_input()
               cont = true; // if line was loaded, we need to break immediatly so that the input loop will be restarted
             break;
           }
-          if( c == 27 ) // Esc key: switch to command mode and start over
+          if( action == InsertModeActions::SwitchToCommandMode )
           {
             state.input_mode = UserInputMode::COMMAND;
             cont = true;
             break;
           }
 
-          if( c == '\r' ) // always return back to caller if they press return
+          if( action == InsertModeActions::Return ) // always return back to caller if they press return key
             break;
 
           // if a line has been loaded, don't return unless
@@ -520,17 +526,16 @@ void Session::process_user_input()
       // on the other hand, the user could switch to passthrough
       // mode to fix a typo and then want the rest of the line to
       // finish loading.
+      PassthroughModeActions action;
+
       while(get_from_stdin(c))
       {
-        if( iscntrl( (unsigned char)c ) )
+        key_bindings.get(c,action);
+        if(action == PassthroughModeActions::SwitchToCommandMode)
         {
-          if((c^64)==68)
-          {
-            state.input_mode = UserInputMode::COMMAND;
-            cont = true;
-            break;
-          }
-          
+          state.input_mode = UserInputMode::COMMAND;
+          cont = true;
+          break;
         }
         send_to_slave(c);
       }

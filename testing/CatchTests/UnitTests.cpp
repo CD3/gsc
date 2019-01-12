@@ -8,6 +8,8 @@
 
 #include "CharTree.hpp"
 
+#include "Keybindings.hpp"
+
 
 using namespace std;
 
@@ -132,9 +134,35 @@ TEST_CASE("CharTree Tests")
 
   }
 
+}
+
+
+TEST_CASE("Keybindings")
+{
+  Keybindings key_bindings;
+
+  InsertModeActions ia;
+  CommandModeActions ca;
+  PassthroughModeActions pa;
+
+  CHECK( key_bindings.get( 'a', ia ) == 0 );
+  CHECK( ia == InsertModeActions::None );
+  CHECK( key_bindings.get( '\r', ia ) == 1 );
+  CHECK( ia == InsertModeActions::Return );
+  CHECK( key_bindings.get( '', ia ) == 1 );
+  CHECK( ia == InsertModeActions::BackOneCharacter);
+  CHECK( key_bindings.get( '', ia ) == 1 );
+  CHECK( ia == InsertModeActions::SwitchToCommandMode);
+
+
+
+
+  CHECK( key_bindings.get( 'a', ca ) == 0 );
+  CHECK( ca == CommandModeActions::None );
+  CHECK( key_bindings.get( '\r', ca ) == 1 );
+  CHECK( ca == CommandModeActions::Return );
 
 
 
 
 }
-
