@@ -24,6 +24,20 @@ Session::Session(std::string filename, std::string shell)
     this->shell = getenv("SHELL") == NULL ? "sh" : getenv("SHELL");
   this->init_shell_args();
 
+  // setup list of multi-character keys that we know about
+  // and want to send together
+  multi_char_keys.add( "" ); // backspace
+  multi_char_keys.add( "OA" ); // up
+  multi_char_keys.add( "OB" ); // down
+  multi_char_keys.add( "OC" ); // right
+  multi_char_keys.add( "OD" ); // left
+  multi_char_keys.add( "[2~" ); // insert
+  multi_char_keys.add( "OH" ); // home
+  multi_char_keys.add( "[5~" ); // page up
+  multi_char_keys.add( "[3~" ); // delete
+  multi_char_keys.add( "OF" ); // end
+  multi_char_keys.add( "[6~" ); // page down
+
   int rc;
   rc = tcgetattr(0,&terminal_settings);
   if( rc == -1 )
@@ -168,7 +182,8 @@ int Session::run()
     // some vars for processing
     // return codes, input chars, and output chars.
     int rc;
-    char ch, ich, och;
+    char ch;
+    int i,n;
 
     // run setup commands first
     BOOST_LOG_TRIVIAL(debug) << "Running setup commands";
@@ -204,13 +219,23 @@ int Session::run()
           if(state.line_status == LineStatus::RELOAD)
             break; // exit without processing char
 
-          // need to call this AFTER user input because
+          // need to get char(s) to load AFTER user input because
           // the user might change the iterator
-          ch = *state.line_character_it;
-          send_to_slave(ch);
+          n = 1;
+          // check if the next characters are part of a multi-character
+          // key that should all be sent at the same time.
+          if(state.process_mutli_char_keys)
+          {
+            auto ptr = multi_char_keys.match(state.line_character_it, state.script_line_it->end());
+            if( ptr != nullptr )
+              n = ptr->depth();
+          }
+          for(i = 0; i < n; ++i)
+          {
+            ch = *state.line_character_it++;
+            send_to_slave(ch);
+          }
           state.line_status = LineStatus::INPROCESS;
-
-          state.line_character_it++;
         }
         if(state.line_status == LineStatus::RELOAD)
           break; // go back to top and start over
@@ -243,12 +268,12 @@ int Session::run()
       send_to_slave('\r');
     }
 
-    do { get_from_stdin(ich); }while(ich != '\r');
+    do { get_from_stdin(ch); }while(ch != '\r');
     // inform the user that the session has ended.
     for( auto c : "\r\n\r\nSession Finished. Press Enter.\r\n" )
       send_to_stdout(c);
     // wait for user before we quit
-    do { get_from_stdin(ich); }while(ich != '\r');
+    do { get_from_stdin(ch); }while(ch != '\r');
 
 
   }
@@ -656,4 +681,14 @@ void Session::shutdown()
   BOOST_LOG_TRIVIAL(debug) << "Shutdown called.";
   state.shutdown = true;
   throw return_exception();
+}
+
+int Session::num_chars_in_next_key()
+{
+  int n = 1;
+
+  
+
+
+  return n;
 }

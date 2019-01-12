@@ -6,6 +6,8 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 
+#include "CharTree.hpp"
+
 
 using namespace std;
 
@@ -96,4 +98,43 @@ TEST_CASE("Session Script")
 }
 
 
+TEST_CASE("CharTree Tests")
+{
+  CharTree tree;
+
+  SECTION("Adding Strings")
+  {
+    CHECK( tree.add("string") == 6 );
+    CHECK( tree.add("sting") == 3 );
+
+    CHECK( tree.get_children().count('s') == 1 );
+    CHECK( tree.get_children().count('t') == 0 );
+    CHECK( tree.get_children().at('s').get_children().count('t') == 1 );
+    CHECK( tree.get_children().at('s').get_children().at('t').get_children().count('r') == 1 );
+    CHECK( tree.get_children().at('s').get_children().at('t').get_children().count('i') == 1 );
+  }
+
+  SECTION("Matching")
+  {
+    CharTree prefixes;
+    prefixes.add("pre");
+    prefixes.add("re");
+    prefixes.add("post");
+
+    REQUIRE( prefixes.match("prefix")  != nullptr );
+    REQUIRE( prefixes.match("postfix") != nullptr );
+    REQUIRE( prefixes.match("reflex")  != nullptr );
+    REQUIRE( prefixes.match("suffix")  == nullptr );
+
+    REQUIRE( prefixes.match("prefix")->depth()  == 3 );
+    REQUIRE( prefixes.match("postfix")->depth() == 4 );
+    REQUIRE( prefixes.match("reflex")->depth()  == 2 );
+
+  }
+
+
+
+
+
+}
 

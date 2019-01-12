@@ -16,6 +16,7 @@
 
 #include "./SessionState.hpp"
 #include "./SessionScript.hpp"
+#include "./CharTree.hpp"
 
 struct Session
 {
@@ -24,6 +25,8 @@ struct Session
   std::vector<std::string> shell_args;
   std::vector<std::string> setup_commands;
   std::vector<std::string> cleanup_commands;
+
+  CharTree multi_char_keys;
 
   std::thread slave_output_thread;
   std::thread monitor_handler_thread;
@@ -64,6 +67,8 @@ struct Session
   void sync_window_size();
 
   void shutdown();
+
+  int num_chars_in_next_key();
 
 };
 

@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 
-
 void SessionScript::load(const std::string& filename)
 {
   if(!boost::filesystem::exists(filename) || boost::filesystem::is_directory(filename))

@@ -35,6 +35,8 @@ struct SessionState
 
   int auto_pilot_pause_milliseconds = 10;
 
+  bool process_mutli_char_keys = true;
+
   termios terminal_settings;
   winsize window_size;
 
