@@ -53,6 +53,7 @@ to change this. For example, to install into a sub-directory of your home direct
 - Specify setup and cleanup scripts that should be ran before and after your demo.
 - Works transparently with your terminal emulator and shell. The shell's output is written directly to standard output,
   so any escape sequences printed by the shell will be interpreted by your terminal
+- Support for simple tag replacement in scripts. For example, the line `mkdir %semester%-%year%` can be rendered to give `mkdir Fall-2019` during the demo.
 
 
 ## Usage

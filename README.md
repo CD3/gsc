@@ -53,6 +53,7 @@ to change this. For example, to install into a sub-directory of your home direct
 - Specify setup and cleanup scripts that should be ran before and after your demo.
 - Works transparently with your terminal emulator and shell. The shell's output is written directly to standard output,
   so any escape sequences printed by the shell will be interpreted by your terminal
+- Support for simple tag replacement in scripts. For example, the line `mkdir %semester%-%year%` can be rendered to give `mkdir Fall-2019` during the demo.
 
 
 ## Usage
@@ -79,6 +80,12 @@ Global options:
                                 be passed to the session shell before any 
                                 script lines.
   -v [ --context-variable ] arg add context variable for string formatting.
+  -k [ --key-binding ] arg      add keybinding in k=action format. only integer
+                                keycodes are supported. example: 
+                                '127:InsertMode_BackOneCharacter' will set 
+                                backspace to backup one character in insert 
+                                mode (default behavior)
+  --list-key-bindings           list all default keybindings.
   --config-file arg             config file to read additional options from.
   --log-file arg                log file name.
   --session-file arg            script file to run.

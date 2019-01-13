@@ -165,8 +165,6 @@ def test_CommandModeQuit():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
-  print(child.before)
-  print(child.after)
   assert child.send("") == 1
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
@@ -268,4 +266,44 @@ def test_ForwardBackward():
 
   child.send("aaaaaa")
   assert child.expect("echo 1") == 0
+
+def test_KeyBindings():
+  with open("script.sh", "w") as f:
+    f.write("echo 1 \n");
+    f.write("echo 2 \n");
+    f.write("echo 3 \n");
+
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "' --key-binding='120:CommandMode_Quit' """,timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+
+  assert child.send("") == 1
+  with pytest.raises(pexpect.exceptions.TIMEOUT):
+    child.expect(".",timeout=1)
+
+  assert child.isalive()
+
+  assert child.send("x") == 1
+  time.sleep(1)
+
+  assert not child.isalive()
+
+def test_ContextVariables():
+  with open("script.sh", "w") as f:
+    f.write("echo %msg% \n");
+
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "' --context-variable="'msg'='hello!'"' """,timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+
+  child.send("aaaaa")
+  assert child.expect("echo ") == 0
+
+  child.send("aaaaaaa")
+  assert child.expect("hello! ") == 0
+
+
+
 

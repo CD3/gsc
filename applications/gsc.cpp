@@ -12,6 +12,7 @@
 #include <boost/process.hpp>
 #include <boost/algorithm/string/find.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/spirit/home/x3.hpp>
 
 #include "Session.hpp"
 #include "Keybindings.hpp"
@@ -19,6 +20,7 @@
 namespace po = boost::program_options;
 using namespace boost;
 using namespace std;
+using namespace boost::spirit;
 
 std::string manual_text = R"(
 
@@ -48,7 +50,7 @@ int main(int argc, char *argv[])
     ("cleanup-script"    , po::value<vector<string>>()->composing(), "may be given multiple times. executable that will be ran after the session finishes.")
     ("setup-command"     , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
     ("cleanup-command"   , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
-    //("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
+    ("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
     ("key-binding,k"     , po::value<vector<string>>()->composing(), "add keybinding in k=action format. only integer keycodes are supported. example: '127:InsertMode_BackOneCharacter' will set backspace to backup one character in insert mode (default behavior)")
     ("list-key-bindings"  , "list all default keybindings.")
     ("config-file"       , po::value<vector<string>>()->composing(), "config file to read additional options from.")
@@ -105,6 +107,29 @@ int main(int argc, char *argv[])
     }
   }
 
+  Context c;
+  if( vm.count("context-variable") > 0 )
+  {
+
+    for( auto &s : vm["context-variable"].as<vector<string>>() )
+    {
+      string key;
+      string val;
+
+      auto keyf = [&](auto& ctx){ key = _attr(ctx);};
+      auto valf = [&](auto& ctx){ val = _attr(ctx);};
+
+      
+      bool r = x3::phrase_parse( s.begin(), s.end(), x3::lexeme[ "'" >> (+(x3::char_-"'"))[keyf] >> "'"]
+                                                  >> "="
+                                                  >> x3::lexeme[ "'" >> (+(x3::char_-"'"))[valf] >> "'"]
+                                                   , x3::ascii::space );
+
+      c[key] = val;
+    }
+
+  }
+
   // read additional configuration from file(s)
   {
     vector<string> files;
@@ -116,7 +141,6 @@ int main(int argc, char *argv[])
     }
     files.push_back(".gscrc");
     files.push_back("%HOME%/.gscrc");
-    Context c;
     c["HOME"] = getenv("HOME") == NULL ? "" : getenv("HOME");
     for( auto& file : files )
     {
@@ -169,6 +193,8 @@ int main(int argc, char *argv[])
     session.state.auto_pilot = AutoPilot::ON;
     session.state.auto_pilot_pause_milliseconds = vm["auto-pause"].as<int>();
   }
+  session.script.context = c;
+  session.script.render();
 
   if( vm.count("setup-command") > 0 )
   {
