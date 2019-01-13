@@ -164,5 +164,21 @@ TEST_CASE("Keybindings")
 
 
 
+  CHECK( key_bindings.str( InsertModeActions::Return )      == "InsertMode_Return" );
+  CHECK( key_bindings.str( CommandModeActions::Return )     == "CommandMode_Return" );
+  CHECK( key_bindings.str( PassthroughModeActions::SwitchToCommandMode) == "PassthroughMode_SwitchToCommandMode" );
+
+
+  CHECK( key_bindings.get( '\r', ia ) == 1 );
+  CHECK( ia == InsertModeActions::Return );
+
+  key_bindings.add('\r', "InsertMode_None");
+
+  CHECK( key_bindings.get( '\r', ia ) == 1 );
+  CHECK( ia == InsertModeActions::None );
+  CHECK( key_bindings.get( '\r', ca ) == 1 );
+  CHECK( ca == CommandModeActions::Return );
+
+
 
 }
