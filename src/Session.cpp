@@ -485,7 +485,7 @@ void Session::process_user_input()
               state.line_status = LineStatus::EMPTY;
             }
             if( init_line_status != LineStatus::LOADED )
-              cont = true; // if line was loaded, we need to break immediatly so that the input loop will be restarted
+              cont = true; // if line was loaded, we need to break immediately so that the input loop will be restarted
             break;
           }
           if( action == InsertModeActions::SwitchToCommandMode )
@@ -495,8 +495,11 @@ void Session::process_user_input()
             break;
           }
 
-          if( action == InsertModeActions::Return ) // always return back to caller if they press return key
+          if( action == InsertModeActions::Return )
             break;
+
+          if( action == InsertModeActions::Disabled )
+            continue;
 
           // if a line has been loaded, don't return unless
           // the user presses Enter (which is handled above)

@@ -10,8 +10,11 @@
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/process.hpp>
+#include <boost/algorithm/string/find.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "Session.hpp"
+#include "Keybindings.hpp"
 
 namespace po = boost::program_options;
 using namespace boost;
@@ -45,8 +48,9 @@ int main(int argc, char *argv[])
     ("cleanup-script"    , po::value<vector<string>>()->composing(), "may be given multiple times. executable that will be ran after the session finishes.")
     ("setup-command"     , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
     ("cleanup-command"   , po::value<vector<string>>()->composing(), "may be given multiple times. command that will be passed to the session shell before any script lines.")
-    ("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
-    //("save-file"         , po::value<string>(), "write a new session file that contains all commands that were actually ran.")
+    //("context-variable,v", po::value<vector<string>>()->composing(), "add context variable for string formatting.")
+    ("key-binding,k"     , po::value<vector<string>>()->composing(), "add keybinding in k=action format. only integer keycodes are supported. example: '127:InsertMode_BackOneCharacter' will set backspace to backup one character in insert mode (default behavior)")
+    ("list-key-bindings"  , "list all default keybindings.")
     ("config-file"       , po::value<vector<string>>()->composing(), "config file to read additional options from.")
     ("log-file"          , po::value<string>(), "log file name.")
     ("session-file"      , po::value<string>(), "script file to run.")
@@ -64,6 +68,14 @@ int main(int argc, char *argv[])
     cout << options << endl;
     exit(0);
   }
+
+  if(vm.count("list-key-bindings"))
+  {
+    Keybindings key_bindings;
+    std::cout << key_bindings << std::endl;
+    exit(0);
+  }
+
   if(vm.count("session-file") == 0)
   {
     cout << "Usage: " << argv[0] << " [OPTIONS] <session-file>" << endl;
@@ -168,6 +180,27 @@ int main(int argc, char *argv[])
   {
     for( auto &s : vm["cleanup-command"].as<vector<string>>() )
       session.cleanup_commands.push_back(s);
+  }
+
+  if( vm.count("key-binding") > 0 )
+  {
+    for( auto s : vm["key-binding"].as<vector<string>>() )
+    {
+      auto res = boost::find_last(s,":");
+      string key( s.begin(), res.begin() );
+      string val( res.begin()+1,s.end() );
+      boost::trim(key);
+
+      int k;
+      try {
+        k = boost::lexical_cast<int>(key);
+      }catch(const boost::bad_lexical_cast& ){
+        std::cerr << "Could not convert keybinding key '"<<key<<"' to int.\r\n";
+        std::cerr << "Key-bindings must specify the integer value emitted when a key is pressed.\r\n";
+        std::cerr << "Binding to keys that emit more than one integer value is not currently supported.\r"<<std::endl;
+      }
+      session.key_bindings.add(k,val);
+    }
   }
 
 

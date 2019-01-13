@@ -1,6 +1,7 @@
 #include "./Keybindings.hpp"
 #include <boost/algorithm/string/predicate.hpp>
 #include <iostream>
+#include <iomanip>
 
 Keybindings::Keybindings()
 {
@@ -11,6 +12,7 @@ Keybindings::Keybindings()
   add_name(SwitchToCommandMode);
   add_name(BackOneCharacter);
   add_name(SkipOneCharacter);
+  add_name(Disabled);
   add_name(None);
 
   // make sure we have added all actions
@@ -139,3 +141,40 @@ std::string Keybindings::str(PassthroughModeActions a) const
 {
   return PassthroughModeActionNames.right.at(a);
 }
+
+
+std::ostream& operator<<(std::ostream &out, Keybindings kb)
+{
+
+  out << std::left << std::setw(5) << "Key"
+      << std::left << std::setw(50) << "Action"
+      << "\n";
+  out << std::left << std::setw(55) << std::setfill('=') << ""
+      << "\n" << std::setfill(' ');
+  out << "\n";
+  for( auto &e : kb.InsertMode )
+  {
+    out << std::left  << std::setw(5) << e.first
+        << std::left  << std::setw(50) << kb.InsertModeActionNames.right.at(e.second)
+        << "\n";
+  }
+
+  out << "\n";
+  for( auto &e : kb.CommandMode )
+  {
+    out << std::left  << std::setw(5) << e.first
+        << std::left  << std::setw(50) << kb.CommandModeActionNames.right.at(e.second)
+        << "\n";
+  }
+
+  out << "\n";
+  for( auto &e : kb.PassthroughMode )
+  {
+    out << std::left  << std::setw(5) << e.first
+        << std::left  << std::setw(50) << kb.PassthroughModeActionNames.right.at(e.second)
+        << "\n";
+  }
+
+  return out;
+}
+

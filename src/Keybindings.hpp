@@ -9,6 +9,7 @@
 
 #include "./Enums.hpp"
 #include <map>
+#include <iostream>
 #include <boost/bimap.hpp>
 
 class Keybindings
@@ -38,6 +39,9 @@ class Keybindings
     std::string str(InsertModeActions) const;
     std::string str(CommandModeActions) const;
     std::string str(PassthroughModeActions) const;
+
+    friend
+    std::ostream& operator<<(std::ostream &out, Keybindings);
 
 };
 

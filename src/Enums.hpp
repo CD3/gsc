@@ -30,6 +30,7 @@ enum class InsertModeActions {
                              , BackOneCharacter
                              , SkipOneCharacter
                              , Return
+                             , Disabled
                              , None
                              };
 enum class PassthroughModeActions {
