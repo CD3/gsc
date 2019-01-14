@@ -86,6 +86,12 @@ int main(int argc, char *argv[])
   }
 
 
+  if( !filesystem::exists(vm["session-file"].as<string>()) )
+  {
+    std::cerr << "No such file '"<<vm["session-file"].as<string>()<<"'"<<std::endl;
+    exit(1);
+  }
+
   filesystem::path session_path(vm["session-file"].as<string>());
   string session_filename = session_path.filename().string();
   string session_basename = session_path.stem().string();
