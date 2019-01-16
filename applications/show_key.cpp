@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <signal.h>
+#include <stdlib.h>
 
 using namespace std;
 
