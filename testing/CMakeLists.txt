@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 2.8 )
+cmake_minimum_required( VERSION 3.10 )
 
 message( "Configuring unit test build." )
 
@@ -41,11 +41,8 @@ set( testName ${PROJECT_NAME}_CatchTests )
 add_executable(${testName} ${unitTest_SOURCES})
 target_link_libraries( ${testName} libgsc )
 
-#Link dependencies
-target_link_libraries(${testName} ${LIBS} ) # If your project builds a library, link to it here
-
 # Make sure that testing binaries are created in the binDir directory
-set_target_properties(${testName} PROPERTIES RUNTIME_OUTPUT_DIRECTORY  ${binDir} )
+set_target_properties(${testName} PROPERTIES RUNTIME_OUTPUT_DIRECTORY  ${binDir} CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES )
 
 # Now add the unit test binary to the CMake test target
 #Notice the WORKING_DIRECTORY and COMMAND
