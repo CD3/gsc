@@ -312,6 +312,8 @@ int Session::send_to_stdout(char c)
   if( state.output_mode == OutputMode::NONE )
     return 0;
   // handle output filtering...
+  
+  return 0;
 }
 
 int Session::get_from_slave(char& c)
@@ -578,7 +580,7 @@ void Session::daemon_process_slave_output()
   polls.events = POLLIN;
   while(!state.shutdown)
   {
-    while( rc = poll(&polls,1,0) )
+    while( (rc = poll(&polls,1,0)) )
     {
       if(rc < 0)
         throw std::runtime_error("There was a problem polling masterfd.");
@@ -611,7 +613,7 @@ void Session::daemon_process_monitor_requests()
 
   while(!state.shutdown)
   {
-    while( rc = poll(&polls,1,0) )
+    while( (rc = poll(&polls,1,0)) )
     {
       if(rc < 0)
         throw std::runtime_error("There was a problem polling monitor socket.");
@@ -674,6 +676,8 @@ int Session::send_state_to_monitor(sockaddr_in* address)
   write_json(state_s,state_t);
 
   sendto(state.monitor_serverfd, state_s.str().c_str(), state_s.str().size(), 0, (sockaddr*)address, sizeof(sockaddr_in) );
+
+  return 0;
 }
 
 void Session::sync_window_size()

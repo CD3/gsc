@@ -99,6 +99,8 @@ int Keybindings::add( int k, const std::string& a)
   }catch(...){
     std::cerr << "Cannot add keybinding for '"+a+"'. Command not recognized" << std::endl;
   }
+
+  return -1;
 }
 
 int Keybindings::get( int k, InsertModeActions& a) const
