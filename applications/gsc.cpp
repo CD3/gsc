@@ -86,15 +86,15 @@ int main(int argc, char *argv[])
   }
 
 
-  if( !filesystem::exists(vm["session-file"].as<string>()) )
+  string session_filename = vm["session-file"].as<string>();
+
+
+  if( !filesystem::exists(session_filename) )
   {
-    std::cerr << "No such file '"<<vm["session-file"].as<string>()<<"'"<<std::endl;
+    std::cerr << "No such file '"<<session_filename<<"'"<<std::endl;
     exit(1);
   }
 
-  filesystem::path session_path(vm["session-file"].as<string>());
-  string session_filename = session_path.filename().string();
-  string session_basename = session_path.stem().string();
 
   // initialize logger
   {
@@ -139,7 +139,6 @@ int main(int argc, char *argv[])
   // read additional configuration from file(s)
   {
     vector<string> files;
-    //files.push_back(session_basename+".gscrc");
     if( vm.count("config-file") )
     {
       for( auto &f : vm["config-file"].as<vector<string>>() )
@@ -256,7 +255,7 @@ int main(int argc, char *argv[])
   }
   catch(const std::runtime_error& e)
   {
-    BOOST_LOG_TRIVIAL(error) << "An error occurred: " << e.what();
+    BOOST_LOG_TRIVIAL(error) << "A runtime error occurred: " << e.what();
     return 1;
   }
   catch(...)
