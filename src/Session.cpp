@@ -344,13 +344,46 @@ void Session::init_shell_args()
 
 void Session::process_user_input()
 {
+  char c;
+
   if(state.auto_pilot == AutoPilot::ON)
   {
+    
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET( STDIN_FILENO, &fds );
+
+    timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0;
+
+    int rc;
+    
+    rc = select(1, &fds, NULL, NULL, &timeout);
+    if( rc < 0 )
+      throw std::runtime_error("There was a problem polling stdin fd.");
+
+    if( rc > 0 )
+    {
+      get_from_stdin(c);
+
+      if( c == 3 ) // Ctl-C
+      {
+        // if the user presses Ctl-C, we need to send SIGINT to everybody in our process group
+        kill(0,SIGINT);
+      }
+      if( c == 28 ) // Ctl-\, which means quit
+      {
+        kill(0,SIGQUIT);
+      }
+
+    }
+
+
     std::this_thread::sleep_for( std::chrono::milliseconds(state.auto_pilot_pause_milliseconds) );
     return;
   }
 
-  char c;
   bool cont;
   // this function would probably be
   // better with a goto.
