@@ -268,12 +268,14 @@ int Session::run()
       send_to_slave('\r');
     }
 
-    do { get_from_stdin(ch); }while(ch != '\r');
+    if(state.auto_pilot != AutoPilot::ON)
+      do { get_from_stdin(ch); }while(ch != '\r');
     // inform the user that the session has ended.
     for( auto c : "\r\n\r\nSession Finished. Press Enter.\r\n" )
       send_to_stdout(c);
     // wait for user before we quit
-    do { get_from_stdin(ch); }while(ch != '\r');
+    if(state.auto_pilot != AutoPilot::ON)
+      do { get_from_stdin(ch); }while(ch != '\r');
 
 
   }
