@@ -660,6 +660,22 @@ void Session::process_script_line()
       {
         state.skipping = false;
       }
+      if(match->first == "PASSTHROUGH")
+      {
+        state.input_mode = UserInputMode::PASSTHROUGH;
+      }
+      if(match->first == "INSERT")
+      {
+        state.input_mode = UserInputMode::INSERT;
+      }
+      if(match->first == "AUTO")
+      {
+        state.input_mode = UserInputMode::AUTO;
+      }
+      if(match->first == "COMMAND")
+      {
+        state.input_mode = UserInputMode::COMMAND;
+      }
 
       state.script_line_it++;
       continue;
