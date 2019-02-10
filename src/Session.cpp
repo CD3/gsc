@@ -13,6 +13,10 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <boost/process.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/lexical_cast.hpp>
+
 
 
 
@@ -294,14 +298,6 @@ bool Session::amParent()
   return state.slavePID > 0;
 }
 
-bool Session::isComment(std::string line)
-{
-  boost::trim(line);
-  if( boost::starts_with(line, "#") )
-    return true;
-  return false;
-}
-
 int Session::get_from_stdin(char& c)
 {
   return read(0,&c,1);
@@ -458,9 +454,9 @@ void Session::process_user_input()
         }
         if( action == CommandModeActions::PrevLine )
         {
-          // if the previous line is a comment
-          // it will be immediatly skipped. so we need to 
-          // backup until we read a non-comment, or the
+          // if the previous line is a command
+          // it will be immediatly re-evaluated. so we need to 
+          // backup until we read a non-command, or the
           // first line.
           do
           {
@@ -468,7 +464,7 @@ void Session::process_user_input()
               state.script_line_it--;
             else
               break;
-          } while( isComment( *state.script_line_it ) );
+          } while( command_parser.parse( *state.script_line_it ) );
           state.line_status = LineStatus::RELOAD;
           break;
         }
@@ -587,17 +583,27 @@ void Session::process_user_input()
 
 void Session::process_script_line()
 {
-
   while(state.script_line_it != this->script.lines.end())
   {
+    auto match = command_parser.parse( *state.script_line_it );
+    if(match)
+    {
+      if(match->first == "RUN")
+      {
+        // WARNING: MAKE SURE YOU KNOW WHO WROTE THE SESSION SCRIPT
+        std::string name = boost::replace_all_copy( match->second, " ", "_" );
+        std::string num  = boost::lexical_cast<std::string>( state.script_line_it - script.lines.begin());
+        std::string out  = num + "-" + name + ".out";
+        std::string err  = num + "-" + name + ".err";
+        boost::process::system(match->second.c_str(), boost::process::std_out > out, boost::process::std_err > err);
+      }
 
-    if( isComment( *state.script_line_it ) )
-    { // skip comments
+      if(match->first == "COMMENT")
+      {
+      }
+
       state.script_line_it++;
       continue;
-
-      // process commands here
-      
     }
 
     break;
