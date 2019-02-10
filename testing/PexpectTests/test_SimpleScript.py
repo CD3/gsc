@@ -20,28 +20,28 @@ def test_SimpleScriptInsertMode():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("e") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("c") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("h") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("o") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect(" ") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("h") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("i") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
@@ -76,31 +76,31 @@ def test_BackspaceInInsertMode():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("e") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("c") == 0
 
   assert child.send(b'\x7f') == 1
   assert child.expect(b'\x08') == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("c") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("h") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("o") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect(" ") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("h") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("i") == 0
 
   assert child.send(b'\x7f') == 1
@@ -109,10 +109,10 @@ def test_BackspaceInInsertMode():
   assert child.send(b'\x7f') == 1
   assert child.expect(b'\x08') == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("h") == 0
 
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   assert child.expect("i") == 0
 
 
@@ -121,7 +121,7 @@ def test_BackspaceInInsertMode():
 def test_CommentsAreIgnored():
 
   with open("script.sh", "w") as f:
-    f.write("# comment\n");
+    f.write("# C: comment\n");
     f.write("echo\n");
 
   child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
@@ -129,7 +129,7 @@ def test_CommentsAreIgnored():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("aaaa") == 4
+  assert child.send("bbbb") == 4
   assert child.expect("echo") == 0
 
 
@@ -139,10 +139,10 @@ def test_CommentsAreIgnored():
 
 
   with open("script.sh", "w") as f:
-    f.write("# comment 1\n");
-    f.write("#comment 2\n");
-    f.write(" # comment 3\n");
-    f.write(" #comment 3\n");
+    f.write("# C : comment 1\n");
+    f.write("#C: comment 2\n");
+    f.write(" # COMMENT : comment 3\n");
+    f.write(" #COMMENT: comment 3\n");
     f.write("echo\n");
 
   child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
@@ -150,7 +150,7 @@ def test_CommentsAreIgnored():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("aaaaaaaaaaa") == 11
+  assert child.send("bbbbbbbbbbb") == 11
   assert child.expect("echo") == 0
 
 
@@ -168,7 +168,7 @@ def test_CommandModeQuit():
   assert child.send("") == 1
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
-  assert child.send("a") == 1
+  assert child.send("b") == 1
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
@@ -195,14 +195,14 @@ def test_SilenseOutput():
   assert child.send("s") == 1
   assert child.send("i") == 1
 
-  assert child.send("a") == 1
-  assert child.send("a") == 1
+  assert child.send("b") == 1
+  assert child.send("b") == 1
 
   assert child.send("") == 1
   assert child.send("v") == 1
   assert child.send("i") == 1
 
-  assert child.send("aaa") == 3
+  assert child.send("bbb") == 3
   assert child.expect(" -l") == 0
 
   assert child.send("") == 1
@@ -213,7 +213,7 @@ def test_SilenseOutput():
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
-  assert child.send("aaaa aa") == 7
+  assert child.send("bbbb bb") == 7
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
@@ -240,7 +240,7 @@ def test_ForwardBackward():
   child.send("j")
   child.send("i")
 
-  child.send("aaaaaa")
+  child.send("bbbbbb")
   assert child.expect("echo 2") == 0
 
   # go back to fist line
@@ -248,7 +248,7 @@ def test_ForwardBackward():
   child.send("kk")
   child.send("i")
 
-  child.send("aaaaaa")
+  child.send("bbbbbb")
   assert child.expect("echo 1") == 0
 
   # skip to end
@@ -256,7 +256,7 @@ def test_ForwardBackward():
   child.send("jjjjjj")
   child.send("i")
 
-  child.send("aaaaaa")
+  child.send("bbbbbb")
   assert child.expect("echo 3") == 0
 
   # go back to begining
@@ -264,7 +264,7 @@ def test_ForwardBackward():
   child.send("kkk")
   child.send("i")
 
-  child.send("aaaaaa")
+  child.send("bbbbbb")
   assert child.expect("echo 1") == 0
 
 def test_KeyBindings():
@@ -298,10 +298,10 @@ def test_ContextVariables():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  child.send("aaaaa")
+  child.send("bbbbbb")
   assert child.expect("echo ") == 0
 
-  child.send("aaaaaaa")
+  child.send("bbbbbbb")
   assert child.expect("hello! ") == 0
 
 

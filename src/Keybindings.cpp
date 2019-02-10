@@ -26,6 +26,7 @@ Keybindings::Keybindings()
   add_name(Return);
   add_name(SwitchToInsertMode);
   add_name(SwitchToPassthroughMode);
+  add_name(SwitchToAutoMode);
   add_name(Quit);
   add_name(ResizeWindow);
   add_name(NextLine);
@@ -48,6 +49,22 @@ Keybindings::Keybindings()
   assert(PassthroughModeActionNames.size() == (int)PassthroughModeActions::None+1);
 #undef add_name
 
+#define add_name(NAME)  \
+  AutoModeActionNames.left.insert( boost::bimap<std::string,AutoModeActions>::left_value_type("AutoMode_"#NAME, AutoModeActions::NAME));
+
+  add_name(SwitchToCommandMode);
+  add_name(SwitchToFullAuto);
+  add_name(SwitchToSemiAuto);
+  add_name(Return);
+  add_name(None);
+
+  assert(AutoModeActionNames.size() == (int)AutoModeActions::None+1);
+#undef add_name
+
+
+
+
+
   add('\r', InsertModeActions::Return);
   add('', InsertModeActions::SwitchToCommandMode);
   add('', InsertModeActions::BackOneCharacter);
@@ -56,6 +73,7 @@ Keybindings::Keybindings()
 
   add('i',  CommandModeActions::SwitchToInsertMode);
   add('p',  CommandModeActions::SwitchToPassthroughMode);
+  add('a',  CommandModeActions::SwitchToAutoMode);
   add('q',  CommandModeActions::Quit);
   add('\r', CommandModeActions::Return);
   add('r',  CommandModeActions::ResizeWindow);
@@ -66,26 +84,29 @@ Keybindings::Keybindings()
   add('o',  CommandModeActions::ToggleStdout);
 
   add('', PassthroughModeActions::SwitchToCommandMode);
+
+  add('', AutoModeActions::SwitchToCommandMode);
+  add('f',  AutoModeActions::SwitchToFullAuto);
+  add('s',  AutoModeActions::SwitchToSemiAuto);
+  add('\r', AutoModeActions::Return);
+
 }
 
-int Keybindings::add( int k, InsertModeActions a)
-{
-  int count = InsertMode.count(k);
-  InsertMode[k] = a;
-  return count;
+#define MakeAdd( TYPE ) \
+int Keybindings::add( int k, TYPE##Actions a)  \
+{ \
+  int count = TYPE.count(k); \
+  TYPE[k] = a; \
+  return count; \
 }
-int Keybindings::add( int k, CommandModeActions a)
-{
-  int count = CommandMode.count(k);
-  CommandMode[k] = a;
-  return count;
-}
-int Keybindings::add( int k, PassthroughModeActions a)
-{
-  int count = PassthroughMode.count(k);
-  PassthroughMode[k] = a;
-  return count;
-}
+
+MakeAdd( InsertMode );
+MakeAdd( CommandMode );
+MakeAdd( PassthroughMode );
+MakeAdd( AutoMode );
+
+#undef MakeAdd
+
 
 int Keybindings::add( int k, const std::string& a)
 {
@@ -96,6 +117,8 @@ int Keybindings::add( int k, const std::string& a)
     return add(k, CommandModeActionNames.left.at(a));
   if(boost::starts_with( a, "PassthroughMode_"))
     return add(k, PassthroughModeActionNames.left.at(a));
+  if(boost::starts_with( a, "AutoMode_"))
+    return add(k, AutoModeActionNames.left.at(a));
   }catch(...){
     std::cerr << "Cannot add keybinding for '"+a+"'. Command not recognized" << std::endl;
   }
@@ -103,46 +126,36 @@ int Keybindings::add( int k, const std::string& a)
   return -1;
 }
 
-int Keybindings::get( int k, InsertModeActions& a) const
-{
-  int count = InsertMode.count(k);
-  if(count > 0)
-    a = InsertMode.at(k);
-  else
-    a = InsertModeActions::None;
-  return count;
-}
-int Keybindings::get( int k, CommandModeActions& a) const
-{
-  int count = CommandMode.count(k);
-  if(count > 0)
-    a = CommandMode.at(k);
-  else
-    a = CommandModeActions::None;
-  return count;
-}
-int Keybindings::get( int k, PassthroughModeActions& a) const
-{
-  int count = PassthroughMode.count(k);
-  if(count > 0)
-    a = PassthroughMode.at(k);
-  else
-    a = PassthroughModeActions::None;
-  return count;
+#define MakeGet( TYPE ) \
+int Keybindings::get( int k, TYPE##Actions& a) const \
+{ \
+  int count = TYPE.count(k); \
+  if(count > 0) \
+    a = TYPE.at(k); \
+  else \
+    a = TYPE##Actions::None; \
+  return count; \
 }
 
-std::string Keybindings::str(InsertModeActions a) const
-{
-  return InsertModeActionNames.right.at(a);
+MakeGet( InsertMode );
+MakeGet( CommandMode );
+MakeGet( PassthroughMode );
+MakeGet( AutoMode );
+
+#undef MakeGet
+
+#define MakeStr( TYPE ) \
+std::string Keybindings::str(TYPE##Actions a) const \
+{ \
+  return TYPE##ActionNames.right.at(a); \
 }
-std::string Keybindings::str(CommandModeActions a) const
-{
-  return CommandModeActionNames.right.at(a);
-}
-std::string Keybindings::str(PassthroughModeActions a) const
-{
-  return PassthroughModeActionNames.right.at(a);
-}
+
+MakeStr( InsertMode );
+MakeStr( CommandMode );
+MakeStr( PassthroughMode );
+MakeStr( AutoMode );
+
+#undef MakeStr
 
 
 std::ostream& operator<<(std::ostream &out, Keybindings kb)
@@ -174,6 +187,14 @@ std::ostream& operator<<(std::ostream &out, Keybindings kb)
   {
     out << std::left  << std::setw(5) << e.first
         << std::left  << std::setw(50) << kb.PassthroughModeActionNames.right.at(e.second)
+        << "\n";
+  }
+
+  out << "\n";
+  for( auto &e : kb.AutoMode )
+  {
+    out << std::left  << std::setw(5) << e.first
+        << std::left  << std::setw(50) << kb.AutoModeActionNames.right.at(e.second)
         << "\n";
   }
 

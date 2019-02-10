@@ -157,7 +157,7 @@ TEST_CASE("Keybindings")
 
 
 
-  CHECK( key_bindings.get( 'a', ca ) == 0 );
+  CHECK( key_bindings.get( 'b', ca ) == 0 );
   CHECK( ca == CommandModeActions::None );
   CHECK( key_bindings.get( '\r', ca ) == 1 );
   CHECK( ca == CommandModeActions::Return );

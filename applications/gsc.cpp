@@ -194,8 +194,9 @@ int main(int argc, char *argv[])
   session.state.monitor_port = vm["monitor-port"].as<int>();
   if( vm.count("auto") > 0 )
   {
-    BOOST_LOG_TRIVIAL(debug) << "Running in auto-pilot";
-    session.state.auto_pilot = AutoPilot::ON;
+    BOOST_LOG_TRIVIAL(debug) << "Running in full auto mode";
+    session.state.input_mode = UserInputMode::AUTO;
+    session.state.auto_pilot_mode  = AutoPilotMode::FULL;
     session.state.auto_pilot_pause_milliseconds = vm["auto-pause"].as<int>();
   }
   session.script.context = c;

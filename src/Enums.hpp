@@ -7,14 +7,15 @@
   * @date 01/11/19
   */
 
-enum class AutoPilot {ON,OFF};
-enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH};
+enum class UserInputMode {COMMAND, INSERT, PASSTHROUGH, AUTO };
 enum class LineStatus {EMPTY, INPROCESS, LOADED, RELOAD};
 enum class OutputMode {ALL, NONE, FILTERED};
+enum class AutoPilotMode { SEMI, FULL };
 
 enum class CommandModeActions {
                                 SwitchToInsertMode
                               , SwitchToPassthroughMode
+                              , SwitchToAutoMode
                               , Quit
                               , Return
                               , ResizeWindow
@@ -37,6 +38,14 @@ enum class PassthroughModeActions {
                                     SwitchToCommandMode
                                   , None
                                   };
+
+enum class AutoModeActions {
+                             SwitchToCommandMode
+                           , SwitchToFullAuto
+                           , SwitchToSemiAuto
+                           , Return
+                           , None
+                           };
 
 
 

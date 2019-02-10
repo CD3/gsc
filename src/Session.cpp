@@ -272,13 +272,13 @@ int Session::run()
       send_to_slave('\r');
     }
 
-    if(state.auto_pilot != AutoPilot::ON)
+    if(state.input_mode != UserInputMode::AUTO)
       do { get_from_stdin(ch); }while(ch != '\r');
     // inform the user that the session has ended.
     for( auto c : "\r\n\r\nSession Finished. Press Enter.\r\n" )
       send_to_stdout(c);
     // wait for user before we quit
-    if(state.auto_pilot != AutoPilot::ON)
+    if(state.input_mode != UserInputMode::AUTO)
       do { get_from_stdin(ch); }while(ch != '\r');
 
 
@@ -343,46 +343,8 @@ void Session::init_shell_args()
 void Session::process_user_input()
 {
   char c;
-
-  if(state.auto_pilot == AutoPilot::ON)
-  {
-    
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET( STDIN_FILENO, &fds );
-
-    timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
-
-    int rc;
-    
-    rc = select(1, &fds, NULL, NULL, &timeout);
-    if( rc < 0 )
-      throw std::runtime_error("There was a problem polling stdin fd.");
-
-    if( rc > 0 )
-    {
-      get_from_stdin(c);
-
-      if( c == 3 ) // Ctl-C
-      {
-        // if the user presses Ctl-C, we need to send SIGINT to everybody in our process group
-        kill(0,SIGINT);
-      }
-      if( c == 28 ) // Ctl-\, which means quit
-      {
-        kill(0,SIGQUIT);
-      }
-
-    }
-
-
-    std::this_thread::sleep_for( std::chrono::milliseconds(state.auto_pilot_pause_milliseconds) );
-    return;
-  }
-
   bool cont;
+
   // this function would probably be
   // better with a goto.
   cont = true;
@@ -425,6 +387,11 @@ void Session::process_user_input()
         if( action == CommandModeActions::SwitchToPassthroughMode )
         {
           state.input_mode = UserInputMode::PASSTHROUGH;
+          break;
+        }
+        if( action == CommandModeActions::SwitchToAutoMode )
+        {
+          state.input_mode = UserInputMode::AUTO;
           break;
         }
 
@@ -576,6 +543,81 @@ void Session::process_user_input()
         send_to_slave(c);
       }
     }
+
+    if(state.input_mode == UserInputMode::AUTO)
+    {
+      
+      fd_set fds;
+      FD_ZERO(&fds);
+      FD_SET( STDIN_FILENO, &fds );
+
+      timeval timeout;
+      timeout.tv_sec = 0;
+      timeout.tv_usec = 0;
+
+      int rc;
+      
+      rc = select(1, &fds, NULL, NULL, &timeout);
+      if( rc < 0 )
+        throw std::runtime_error("There was a problem polling stdin fd.");
+
+      // if we are in semi-auto mode and a line has been
+      // loaded, then we need to wait for user input
+      if(state.auto_pilot_mode == AutoPilotMode::SEMI
+      && state.line_status == LineStatus::LOADED )
+        cont = true;
+
+
+      if( rc > 0 )
+      {
+        AutoModeActions action;
+          
+        get_from_stdin(c);
+        key_bindings.get(c,action);
+
+        if( c == 3 ) // Ctl-C
+        {
+          // if the user presses Ctl-C, we need to send SIGINT to everybody in our process group
+          kill(0,SIGINT);
+        }
+        if( c == 28 ) // Ctl-\, which means quit
+        {
+          kill(0,SIGQUIT);
+        }
+
+        if( action == AutoModeActions::SwitchToCommandMode )
+        {
+          state.input_mode = UserInputMode::COMMAND;
+        }
+
+        if( action == AutoModeActions::SwitchToFullAuto)
+        {
+          state.auto_pilot_mode = AutoPilotMode::FULL;
+        }
+
+        if( action == AutoModeActions::SwitchToSemiAuto)
+        {
+          state.auto_pilot_mode = AutoPilotMode::SEMI;
+        }
+
+        if( action == AutoModeActions::Return)
+          break;
+
+
+
+      }
+
+
+
+      std::this_thread::sleep_for( std::chrono::milliseconds(state.auto_pilot_pause_milliseconds) );
+    }
+
+
+
+
+
+
+
   }
 
   return;
@@ -682,6 +724,10 @@ int Session::send_state_to_monitor(sockaddr_in* address)
     state_t.put("input mode","C");
   else if( state.input_mode == UserInputMode::PASSTHROUGH )
     state_t.put("input mode","P");
+  else if( state.input_mode == UserInputMode::AUTO && state.auto_pilot_mode == AutoPilotMode::FULL)
+    state_t.put("input mode","FA");
+  else if( state.input_mode == UserInputMode::AUTO)
+    state_t.put("input mode","SA");
 
 
 

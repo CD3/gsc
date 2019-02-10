@@ -21,7 +21,7 @@ struct SessionState
   UserInputMode input_mode = UserInputMode::INSERT;
   LineStatus line_status = LineStatus::EMPTY;
   OutputMode output_mode = OutputMode::ALL;
-  AutoPilot auto_pilot = AutoPilot::OFF;
+  AutoPilotMode auto_pilot_mode = AutoPilotMode::FULL;
 
   int masterfd = -2;
   int slavefd = -2;
@@ -33,7 +33,7 @@ struct SessionState
   int monitor_port = 3000;
   int monitor_serverfd = -2;
 
-  int auto_pilot_pause_milliseconds = 10;
+  int auto_pilot_pause_milliseconds = 100;
 
   bool process_mutli_char_keys = true;
 
