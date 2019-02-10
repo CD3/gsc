@@ -304,6 +304,43 @@ def test_ContextVariables():
   child.send("bbbbbbb")
   assert child.expect("hello! ") == 0
 
+def test_ExitCommand():
+  with open("script.sh", "w") as f:
+    f.write("echo\n");
+    f.write("# EXIT\n");
+    f.write("echo\n");
 
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.send("bbbbbb")
+  assert child.isalive()
+  assert child.expect("echo") == 0
+
+  child.send("\r")
+  time.sleep(1)
+
+  assert not child.isalive()
+
+
+def test_SkipCommand():
+  with open("script.sh", "w") as f:
+    f.write("echo 1\n");
+    f.write("# SKIP\n");
+    f.write("echo 2\n");
+    f.write("# RESUME\n");
+    f.write("echo 3\n");
+
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.send("bbbbbbbb")
+  assert child.expect("echo 1") == 0
+  child.sendcontrol(r"m")
+  assert child.expect("\r\n") == 0
+  child.send("bbbbbbbb")
+  assert child.expect("echo 3") == 0
 
 
