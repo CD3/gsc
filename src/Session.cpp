@@ -630,6 +630,9 @@ void Session::process_script_line()
     auto match = command_parser.parse( *state.script_line_it );
     if(match)
     {
+      if(match->first == "COMMENT")
+      {
+      }
       if(match->first == "RUN")
       {
         // WARNING: MAKE SURE YOU KNOW WHO WROTE THE SESSION SCRIPT
@@ -639,9 +642,9 @@ void Session::process_script_line()
         std::string err  = num + "-" + name + ".err";
         boost::process::system(match->second.c_str(), boost::process::std_out > out, boost::process::std_err > err);
       }
-
-      if(match->first == "COMMENT")
+      if(match->first == "EXIT")
       {
+        shutdown();
       }
 
       state.script_line_it++;

@@ -41,6 +41,8 @@ struct CommandParser
     commands.add("C", "COMMENT");
     commands.add("RUN", "RUN");
     commands.add("R", "RUN");
+    commands.add("EXIT", "EXIT");
+    commands.add("X", "EXIT");
   }
 
   std::optional< std::pair< std::string, std::string > > parse( std::string line )
@@ -54,7 +56,7 @@ struct CommandParser
     auto commf = [&command]( auto& ctx){ command = sx3::_attr(ctx); };
     auto argf =  [&argument](auto& ctx){ argument = sx3::_attr(ctx); };
 
-    auto inline_command_parser = marker >> commands[commf] >> sep >> arg[argf];
+    auto inline_command_parser = marker >> commands[commf] >> *(sep >> arg[argf]);
 
     auto it = line.begin();
     bool match = sx3::phrase_parse(it,
