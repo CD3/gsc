@@ -43,6 +43,8 @@ struct CommandParser
     commands.add("R", "RUN");
     commands.add("EXIT", "EXIT");
     commands.add("X", "EXIT");
+    commands.add("SKIP", "SKIP");
+    commands.add("RESUME", "RESUME");
   }
 
   std::optional< std::pair< std::string, std::string > > parse( std::string line )

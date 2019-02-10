@@ -37,6 +37,8 @@ struct SessionState
 
   bool process_mutli_char_keys = true;
 
+  bool skipping = false;
+
   termios terminal_settings;
   winsize window_size;
 

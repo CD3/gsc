@@ -206,6 +206,11 @@ int Session::run()
     {
       // process line for commands, comments, etc.
       process_script_line();
+      if(state.skipping)
+      {
+        state.script_line_it++;
+        continue;
+      }
 
       std::string& line = *state.script_line_it;
       
@@ -645,6 +650,15 @@ void Session::process_script_line()
       if(match->first == "EXIT")
       {
         shutdown();
+      }
+
+      if(match->first == "SKIP")
+      {
+        state.skipping = true;
+      }
+      if(match->first == "RESUME")
+      {
+        state.skipping = false;
       }
 
       state.script_line_it++;
