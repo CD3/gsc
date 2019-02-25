@@ -676,6 +676,10 @@ void Session::process_script_line()
       {
         state.input_mode = UserInputMode::COMMAND;
       }
+      if(match->first == "PAUSE")
+      {
+        std::this_thread::sleep_for( std::chrono::milliseconds( boost::lexical_cast<int>(match->second) ) );
+      }
 
       state.script_line_it++;
       continue;

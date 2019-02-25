@@ -49,6 +49,7 @@ struct CommandParser
     commands.add("INSERT", "INSERT");
     commands.add("AUTO", "AUTO");
     commands.add("COMMAND", "COMMAND");
+    commands.add("PAUSE", "PAUSE");
   }
 
   std::optional< std::pair< std::string, std::string > > parse( std::string line )
