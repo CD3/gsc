@@ -239,14 +239,44 @@ int main(int argc, char *argv[])
 
 
   try {
+    // run setup scripts
     for( auto &s : setup_scripts )
-      process::system(s.c_str());
+    {
+      std::error_code ec;
+      int result = process::system(s.c_str(),ec);
+      if( ec.value() == 2 )
+      {
+        std::cerr << "\rCould not find setup script '"<<s<<"'. If the script is not in a PATH variable, you will need to prefix it with a './'"<<std::endl;
+        throw std::runtime_error("Could not find setup script "+s);
+      }
+      if( ec.value() == 13 )
+      {
+        std::cerr << "\rCould not execute setup script '"<<s<<"'. Make sure that it is executable." << std::endl;
+        throw std::runtime_error("Could not execute setup script "+s);
+      }
+
+    }
 
     // run the session
     session.run();
 
+    // run cleanup scripts
     for( auto &s : cleanup_scripts )
-      process::system(s.c_str());
+    {
+      std::error_code ec;
+      int result = process::system(s.c_str(),ec);
+      if( ec.value() == 2 )
+      {
+        std::cerr << "\rCould not find cleanup script '"<<s<<"'. If the script is not in a PATH variable, you will need to prefix it with a './'"<<std::endl;
+        throw std::runtime_error("Could not find cleanup script "+s);
+      }
+      if( ec.value() == 13 )
+      {
+        std::cerr << "\rCould not execute cleanup script '"<<s<<"'. Make sure that it is executable." << std::endl;
+        throw std::runtime_error("Could not execute cleanup script "+s);
+      }
+
+    }
 
   }
   catch(const normal_exit_exception& e)

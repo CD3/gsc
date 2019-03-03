@@ -139,6 +139,12 @@ Session::Session(std::string filename, std::string shell)
 
     BOOST_LOG_TRIVIAL(debug) << "Monitor server ready.";
 
+    // create a thread to process output from the
+    // slave device.
+    slave_output_thread = std::thread(&Session::daemon_process_slave_output,this);
+
+    BOOST_LOG_TRIVIAL(debug) << "Slave output handler ready.";
+
 
     // set terminal to raw mode
     cfmakeraw(&(state.terminal_settings));
@@ -180,9 +186,6 @@ int Session::run()
   
   if(amParent())
   {
-    // create a thread to process output from the
-    // slave device.
-    slave_output_thread = std::thread(&Session::daemon_process_slave_output,this);
     // some vars for processing
     // return codes, input chars, and output chars.
     int rc;
