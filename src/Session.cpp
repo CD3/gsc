@@ -381,7 +381,7 @@ void Session::process_user_input()
         key_bindings.get(c,action);
 
         if( action == CommandModeActions::Quit )
-          shutdown();
+          shutdown(true);
         if( action == CommandModeActions::ResizeWindow )
           sync_window_size();
         if( action == CommandModeActions::SwitchToInsertMode )
@@ -812,11 +812,14 @@ void Session::sync_window_size()
       throw std::runtime_error("Could not set psuedo-terminal window size");
 }
 
-void Session::shutdown()
+void Session::shutdown(bool early)
 {
   BOOST_LOG_TRIVIAL(debug) << "Shutdown called.";
   state.shutdown = true;
-  throw return_exception();
+  if(early)
+    throw early_exit_exception();
+  else
+    throw normal_exit_exception();
 }
 
 int Session::num_chars_in_next_key()

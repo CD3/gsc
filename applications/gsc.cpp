@@ -30,8 +30,8 @@ void signal_handler(int sig)
 {
   BOOST_LOG_TRIVIAL(debug) << "Received signal: " << sig;
 
-  BOOST_LOG_TRIVIAL(debug) << "Throwing return_exception";
-  throw return_exception();
+  BOOST_LOG_TRIVIAL(debug) << "Throwing early_exit_exception";
+  throw early_exit_exception();
 }
 
 int main(int argc, char *argv[])
@@ -249,20 +249,25 @@ int main(int argc, char *argv[])
       process::system(s.c_str());
 
   }
-  catch(const return_exception& e)
+  catch(const normal_exit_exception& e)
   {
-    BOOST_LOG_TRIVIAL(debug) << "Exiting.";
+    BOOST_LOG_TRIVIAL(debug) << "Exiting normally.";
     return 0;
+  }
+  catch(const early_exit_exception& e)
+  {
+    BOOST_LOG_TRIVIAL(debug) << "Exiting early.";
+    return 1;
   }
   catch(const std::runtime_error& e)
   {
     BOOST_LOG_TRIVIAL(error) << "A runtime error occurred: " << e.what();
-    return 1;
+    return 2;
   }
   catch(...)
   {
     BOOST_LOG_TRIVIAL(error) << "An unknown error occurred.";
-    return 1;
+    return 3;
   }
 
 

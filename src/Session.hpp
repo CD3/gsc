@@ -136,7 +136,7 @@ struct Session
 
   void sync_window_size();
 
-  void shutdown();
+  void shutdown(bool early = false);
 
   int num_chars_in_next_key();
 

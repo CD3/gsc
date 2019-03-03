@@ -10,7 +10,8 @@
 #include <exception>
 #include <string>
 
-class return_exception : public std::exception {};
+class normal_exit_exception : public std::exception {};
+class early_exit_exception : public std::exception {};
 using Context = std::map<std::string, std::string>;
 
 

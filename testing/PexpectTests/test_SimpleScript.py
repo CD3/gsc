@@ -64,6 +64,9 @@ def test_SimpleScriptInsertMode():
 
   assert not child.isalive()
 
+  child.close()
+  assert child.exitstatus == 0
+
 
 
 def test_BackspaceInInsertMode():
@@ -180,7 +183,26 @@ def test_CommandModeQuit():
 
   assert not child.isalive()
 
-def test_SilenseOutput():
+  child.close()
+  assert child.exitstatus == 1
+
+def test_CommandModeQuit():
+  with open("script.sh", "w") as f:
+    f.write("echo\n");
+
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+
+  assert child.isalive()
+
+  child.send("")
+  time.sleep(1)
+
+  assert not child.isalive()
+
+  child.close()
+  assert child.exitstatus == 1
+
+def test_SilenceOutput():
 
   with open("script.sh", "w") as f:
     f.write("ls -l\n");
@@ -322,6 +344,9 @@ def test_ExitCommand():
   time.sleep(1)
 
   assert not child.isalive()
+
+  child.close()
+  assert child.exitstatus == 0
 
 
 def test_SkipCommand():
