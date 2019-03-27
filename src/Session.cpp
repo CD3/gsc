@@ -377,8 +377,13 @@ void Session::process_user_input()
       // state.
 
       CommandModeActions action;
-      while(get_from_stdin(c)) // read input until we recognize a command
+      while(count = get_from_stdin(buffer)) // read input until we recognize a command
       {
+        // FIXME: ignore multi-char keys for now
+        if(count > 1)
+          continue;
+
+        c = buffer[0];
         if( c == 3 ) // Ctl-C
         {
           // if the user presses Ctl-C, we need to send SIGINT to everybody in our process group
@@ -472,7 +477,10 @@ void Session::process_user_input()
       InsertModeActions action;
       for(;;) // start looping
       {
-          get_from_stdin(c); // reach char from user
+          count = get_from_stdin(buffer);
+          if(count > 1)
+            continue;
+          c = buffer[0];
 
           if( c == 3 ) // Ctl-C
           {
