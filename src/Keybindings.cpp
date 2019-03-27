@@ -68,6 +68,7 @@ Keybindings::Keybindings()
   add('\r', InsertModeActions::Return);
   add('', InsertModeActions::SwitchToCommandMode);
   add('', InsertModeActions::BackOneCharacter);
+  add('', InsertModeActions::BackOneCharacter);
   add(-1,   InsertModeActions::SkipOneCharacter);
 
 
