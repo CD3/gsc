@@ -114,6 +114,8 @@ struct Session
 
   int run();
   int get_from_stdin(char& c);
+  template<size_t N>
+  int get_from_stdin(char (&c)[N]);
   int send_to_stdout(char c);
   int get_from_slave(char& c);
   int send_to_slave(char c);

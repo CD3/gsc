@@ -182,3 +182,64 @@ TEST_CASE("Keybindings")
 
 
 }
+
+int func_that_takes_char_by_ref( char& c )
+{
+	c = 'a';
+	return 1;
+}
+
+int func_that_takes_2_elem_char_array( char c[2] )
+{
+	for(int i = 0; i < 2; ++i)
+		c[i] = 'b';
+	return 2;
+}
+
+template<int N>
+int temp_func_that_takes_char_array( char (&c)[N] )
+{
+	for(int i = 0; i < N; ++i)
+		c[i] = 'b';
+	return N;
+}
+
+TEST_CASE("Workspace (Misc tests for seeing how things work)")
+{
+	char c = 'z';
+
+	CHECK( c == 'z' );
+	func_that_takes_char_by_ref(c);
+	CHECK( c == 'a' );
+
+
+	char cc[2];
+	cc[0] = 'z';
+	cc[1] = 'z';
+
+	CHECK( cc[0] == 'z' );
+	CHECK( cc[1] == 'z' );
+
+	func_that_takes_2_elem_char_array( cc );
+	CHECK( cc[0] == 'b' );
+	CHECK( cc[1] == 'b' );
+
+
+
+	char ccc[3];
+	ccc[0] = 'z';
+	ccc[1] = 'z';
+	ccc[2] = 'z';
+
+	CHECK( ccc[0] == 'z' );
+	CHECK( ccc[1] == 'z' );
+	CHECK( ccc[2] == 'z' );
+
+	temp_func_that_takes_char_array( ccc );
+	CHECK( ccc[0] == 'b' );
+	CHECK( ccc[1] == 'b' );
+	CHECK( ccc[2] == 'b' );
+
+
+
+}

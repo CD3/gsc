@@ -311,6 +311,12 @@ int Session::get_from_stdin(char& c)
   return read(0,&c,1);
 }
 
+template<size_t N>
+int Session::get_from_stdin(char (&c)[N])
+{
+  return read(0,c,N);
+}
+
 int Session::send_to_stdout(char c)
 {
   if( state.output_mode == OutputMode::ALL )
@@ -351,6 +357,8 @@ void Session::init_shell_args()
 void Session::process_user_input()
 {
   char c;
+  char buffer[12];
+  int count;
   bool cont;
 
   // this function would probably be
