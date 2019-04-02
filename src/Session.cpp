@@ -577,7 +577,7 @@ void Session::process_user_input()
 
       timeval timeout;
       timeout.tv_sec = 0;
-      timeout.tv_usec = 0;
+      timeout.tv_usec = 1000000;
 
       int rc;
       
@@ -719,7 +719,11 @@ void Session::daemon_process_slave_output()
   polls.events = POLLIN;
   while(!state.shutdown)
   {
-    while( (rc = poll(&polls,1,0)) )
+    // check for input from the master.
+    // note: we currently need to timeout after
+    // some time so that we can check the shutdown switch.
+    // perhaps we could block indefinatly if we sent a signal instead?
+    while( (rc = poll(&polls,1,100)) )
     {
       if(rc < 0)
         throw std::runtime_error("There was a problem polling masterfd.");
@@ -752,7 +756,7 @@ void Session::daemon_process_monitor_requests()
 
   while(!state.shutdown)
   {
-    while( (rc = poll(&polls,1,0)) )
+    while( (rc = poll(&polls,1,100)) )
     {
       if(rc < 0)
         throw std::runtime_error("There was a problem polling monitor socket.");
