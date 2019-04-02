@@ -2,6 +2,10 @@ import pexpect
 import pytest
 import time
 
+
+# NOTE: Only one character at a time should be sent to simulate key presses.
+# Currently gsc ignores multiple character key-presses, so sending multiple
+# characters will not result in output.
 def print_output(proc):
   proc.expect(".")
   print(proc.before)
@@ -132,7 +136,10 @@ def test_CommentsAreIgnored():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("bbbb") == 4
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
   assert child.expect("echo") == 0
 
 
@@ -153,7 +160,14 @@ def test_CommentsAreIgnored():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("bbbbbbbbbbb") == 11
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
   assert child.expect("echo") == 0
 
 
@@ -168,17 +182,17 @@ def test_CommandModeQuit():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
-  assert child.send("") == 1
+  assert child.send("")
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
-  assert child.send("b") == 1
+  assert child.send("b")
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
 
   assert child.isalive()
 
-  assert child.send("q") == 1
+  assert child.send("q")
   time.sleep(1)
 
   assert not child.isalive()
@@ -186,7 +200,7 @@ def test_CommandModeQuit():
   child.close()
   assert child.exitstatus == 1
 
-def test_CommandModeQuit():
+def test_InsertModeQuit():
   with open("script.sh", "w") as f:
     f.write("echo\n");
 
@@ -213,37 +227,45 @@ def test_SilenceOutput():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("") == 1
-  assert child.send("s") == 1
-  assert child.send("i") == 1
+  assert child.send("")
+  assert child.send("s")
+  assert child.send("i")
 
-  assert child.send("b") == 1
-  assert child.send("b") == 1
+  assert child.send("b")
+  assert child.send("b")
 
-  assert child.send("") == 1
-  assert child.send("v") == 1
-  assert child.send("i") == 1
+  assert child.send("")
+  assert child.send("v")
+  assert child.send("i")
 
-  assert child.send("bbb") == 3
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
   assert child.expect(" -l") == 0
 
-  assert child.send("") == 1
-  assert child.send("s") == 1
-  assert child.send("i") == 1
+  assert child.send("")
+  assert child.send("s")
+  assert child.send("i")
 
-  assert child.sendcontrol('m') == 1
+  assert child.sendcontrol('m')
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
-  assert child.send("bbbb bb") == 7
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send("b")
+  assert child.send(" ")
+  assert child.send("b")
+  assert child.send("b")
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
-  assert child.send("") == 1
-  assert child.send("v") == 1
-  assert child.send("i") == 1
+  assert child.send("")
+  assert child.send("v")
+  assert child.send("i")
 
-  assert child.sendcontrol('m') == 1
+  assert child.sendcontrol('m')
   assert child.expect("^\r\nhi") == 0
 
 def test_ForwardBackward():
@@ -262,31 +284,61 @@ def test_ForwardBackward():
   child.send("j")
   child.send("i")
 
-  child.send("bbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("echo 2") == 0
 
   # go back to fist line
   child.send("")
-  child.send("kk")
+  child.send("k")
+  child.send("k")
   child.send("i")
 
-  child.send("bbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("echo 1") == 0
 
   # skip to end
   child.send("")
-  child.send("jjjjjj")
+  child.send("j")
+  child.send("j")
+  child.send("j")
+  child.send("j")
+  child.send("j")
+  child.send("j")
+  child.send("j")
   child.send("i")
 
-  child.send("bbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("echo 3") == 0
 
   # go back to begining
   child.send("")
-  child.send("kkk")
+  child.send("k")
+  child.send("k")
+  child.send("k")
   child.send("i")
 
-  child.send("bbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("echo 1") == 0
 
 def test_KeyBindings():
@@ -300,13 +352,13 @@ def test_KeyBindings():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  assert child.send("") == 1
+  assert child.send("")
   with pytest.raises(pexpect.exceptions.TIMEOUT):
     child.expect(".",timeout=1)
 
   assert child.isalive()
 
-  assert child.send("x") == 1
+  assert child.send("x")
   time.sleep(1)
 
   assert not child.isalive()
@@ -320,10 +372,20 @@ def test_ContextVariables():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
 
-  child.send("bbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("echo ") == 0
 
-  child.send("bbbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("hello! ") == 0
 
 def test_ExitCommand():
@@ -336,7 +398,13 @@ def test_ExitCommand():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
-  child.send("bbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.isalive()
   assert child.expect("echo") == 0
 
@@ -361,11 +429,35 @@ def test_SkipCommand():
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
-  child.send("bbbbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("echo 1") == 0
   child.sendcontrol(r"m")
   assert child.expect("\r\n") == 0
-  child.send("bbbbbbbb")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
+  child.send("b")
   assert child.expect("echo 3") == 0
 
 
+def test_MultiCharInputIsIgnored():
+  with open("script.sh", "w") as f:
+    f.write("echo 1\n");
+
+  child = pexpect.spawn("""./gsc script.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+  child.expect(r"\$>>> ")
+
+  child.send("bb")
+  child.send("b")
+  child.expect("e") == 0
