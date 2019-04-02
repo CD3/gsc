@@ -44,6 +44,7 @@ int main(int argc, char *argv[])
     ("debug,d"           , "debug mode. print everything.")
     ("shell"             , po::value<string>()->default_value(""), "use shell instead of default.")
     ("monitor-port"      , po::value<int>()->default_value(3000), "port to use for monitor socket connections.")
+    ("no-monitor"        , "disable monitor server.")
     ("auto,a"            , "run script in auto-pilot without waiting for user input. useful for testing.")
     ("auto-pause"        , po::value<int>()->default_value(100), "number of milliseconds to pause between key presses in auto-pilot.")
     ("setup-script"      , po::value<vector<string>>()->composing(), "may be given multiple times. executables that will be ran before the session starts.")
@@ -190,8 +191,11 @@ int main(int argc, char *argv[])
     throw std::runtime_error("Could not setup signal handler");
   }
 
-  Session session(session_filename,vm["shell"].as<string>());
-  session.state.monitor_port = vm["monitor-port"].as<int>();
+  int monitor_port = vm["monitor-port"].as<int>();
+  if( vm.count("no-monitor") )
+    monitor_port = -1;
+
+  Session session(session_filename,vm["shell"].as<string>(),monitor_port);
   if( vm.count("auto") > 0 )
   {
     BOOST_LOG_TRIVIAL(debug) << "Running in full auto mode";

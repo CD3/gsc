@@ -15,7 +15,7 @@ def test_SimpleScriptInsertMode():
   with open("script-1.sh", "w") as f:
     f.write("echo hi\n");
 
-  child = pexpect.spawn("""./gsc script-1.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-1.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   # the prompt will be printed 3 times:
   # once when the setup command is echo'ed by the shell
   # once when the new prompt is printed by the shell
@@ -78,7 +78,7 @@ def test_BackspaceInInsertMode():
   with open("script-2.sh", "w") as f:
     f.write("echo hi\n");
 
-  child = pexpect.spawn("""./gsc script-2.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-2.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -131,7 +131,7 @@ def test_CommentsAreIgnored():
     f.write("# C: comment\n");
     f.write("echo\n");
 
-  child = pexpect.spawn("""./gsc script-3.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-3.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -155,7 +155,7 @@ def test_CommentsAreIgnored():
     f.write(" #COMMENT: comment 3\n");
     f.write("echo\n");
 
-  child = pexpect.spawn("""./gsc script-3.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-3.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -178,7 +178,7 @@ def test_CommandModeQuit():
   with open("script-4.sh", "w") as f:
     f.write("echo\n");
 
-  child = pexpect.spawn("""./gsc script-4.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-4.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -204,7 +204,7 @@ def test_InsertModeQuit():
   with open("script-5.sh", "w") as f:
     f.write("echo\n");
 
-  child = pexpect.spawn("""./gsc script-5.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-5.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
 
   assert child.isalive()
 
@@ -222,7 +222,7 @@ def test_SilenceOutput():
     f.write("ls -l\n");
     f.write("echo hi\n");
 
-  child = pexpect.spawn("""./gsc script-6.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-6.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -274,7 +274,7 @@ def test_ForwardBackward():
     f.write("echo 2 \n");
     f.write("echo 3 \n");
 
-  child = pexpect.spawn("""./gsc script-7.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-7.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -347,7 +347,7 @@ def test_KeyBindings():
     f.write("echo 2 \n");
     f.write("echo 3 \n");
 
-  child = pexpect.spawn("""./gsc script-8.sh --shell bash --setup-command='PS1="$>>> "' --key-binding='120:CommandMode_Quit' """,timeout=2)
+  child = pexpect.spawn("""./gsc script-8.sh --shell bash --no-monitor --setup-command='PS1="$>>> "' --key-binding='120:CommandMode_Quit' """,timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -367,7 +367,7 @@ def test_ContextVariables():
   with open("script-9.sh", "w") as f:
     f.write("echo %msg% \n");
 
-  child = pexpect.spawn("""./gsc script-9.sh --shell bash --setup-command='PS1="$>>> "' --context-variable="'msg'='hello!'"' """,timeout=2)
+  child = pexpect.spawn("""./gsc script-9.sh --shell bash --no-monitor --setup-command='PS1="$>>> "' --context-variable="'msg'='hello!'"' """,timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -394,7 +394,7 @@ def test_ExitCommand():
     f.write("# EXIT\n");
     f.write("echo\n");
 
-  child = pexpect.spawn("""./gsc script-10.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-10.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -425,7 +425,7 @@ def test_SkipCommand():
     f.write("# RESUME\n");
     f.write("echo 3\n");
 
-  child = pexpect.spawn("""./gsc script-11.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-11.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
@@ -453,7 +453,7 @@ def test_MultiCharInputIsIgnored():
   with open("script-12.sh", "w") as f:
     f.write("echo 1\n");
 
-  child = pexpect.spawn("""./gsc script-12.sh --shell bash --setup-command='PS1="$>>> "'""",timeout=2)
+  child = pexpect.spawn("""./gsc script-12.sh --shell bash --no-monitor --setup-command='PS1="$>>> "'""",timeout=2)
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")
   child.expect(r"\$>>> ")

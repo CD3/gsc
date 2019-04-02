@@ -108,7 +108,7 @@ struct Session
 
   CommandParser command_parser;
 
-  Session(std::string filename, std::string shell = "");
+  Session(std::string filename, std::string shell = "", int monitor_prot = 3000);
   ~Session();
 
 
