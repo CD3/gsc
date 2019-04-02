@@ -42,7 +42,7 @@ add_executable(${testName} ${unitTest_SOURCES})
 target_link_libraries( ${testName} libgsc )
 
 # Make sure that testing binaries are created in the binDir directory
-set_target_properties(${testName} PROPERTIES RUNTIME_OUTPUT_DIRECTORY  ${binDir} CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES )
+set_target_properties(${testName} PROPERTIES RUNTIME_OUTPUT_DIRECTORY  ${binDir} )
 
 # Now add the unit test binary to the CMake test target
 #Notice the WORKING_DIRECTORY and COMMAND

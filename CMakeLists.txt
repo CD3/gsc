@@ -33,11 +33,10 @@ target_include_directories( libgsc
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
 )
 target_link_libraries( libgsc PUBLIC Boost::boost Boost::filesystem Boost::log )
-set_target_properties( libgsc PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES )
+target_compile_features( libgsc PUBLIC cxx_std_17 )
 
 
 add_executable( gsc applications/gsc.cpp )
-set_target_properties( gsc PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES )
 target_link_libraries( gsc
   libgsc
   Boost::boost
