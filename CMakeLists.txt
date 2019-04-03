@@ -11,7 +11,6 @@ find_package( boost ) # conan version
 if( TARGET boost::boost )
   add_library(Boost::boost INTERFACE IMPORTED )
   target_link_libraries( Boost::boost INTERFACE boost::boost )
-  target_compile_definitions( Boost::boost INTERFACE _GLIBCXX_USE_CXX11_ABI=0 )
 
   add_library(Boost::log   INTERFACE IMPORTED )
   add_library(Boost::filesystem  INTERFACE IMPORTED )
