@@ -3,11 +3,27 @@ cmake_minimum_required( VERSION 3.10 )
 project(libgsc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules")
+include(${CMAKE_BINARY_DIR}/conan_paths.cmake OPTIONAL)
 
 
 # Boost libraries
-set(Boost_USE_STATIC_LIBS ON)
-find_package( Boost REQUIRED COMPONENTS filesystem log program_options )
+find_package( boost ) # conan version
+if( TARGET boost::boost )
+  add_library(Boost::boost INTERFACE IMPORTED )
+  target_link_libraries( Boost::boost INTERFACE boost::boost )
+  target_compile_definitions( Boost::boost INTERFACE _GLIBCXX_USE_CXX11_ABI=0 )
+
+  add_library(Boost::log   INTERFACE IMPORTED )
+  add_library(Boost::filesystem  INTERFACE IMPORTED )
+  add_library(Boost::program_options INTERFACE IMPORTED )
+  target_link_libraries( Boost::log INTERFACE Boost::boost )
+  target_link_libraries( Boost::filesystem INTERFACE Boost::boost )
+  target_link_libraries( Boost::program_options INTERFACE Boost::boost )
+else()
+  set(Boost_USE_STATIC_LIBS ON)
+  find_package( Boost REQUIRED COMPONENTS filesystem log program_options ) # system version
+endif()
+
 
 add_library( libgsc )
 target_sources(
