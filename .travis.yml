@@ -2,7 +2,7 @@ language : cpp
 matrix:
   include:
     - os : linux
-      dist: trusty
+      dist: xenial
       addons:
         apt:
           sources:
@@ -11,13 +11,11 @@ matrix:
             g++-7
       env:
         MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
-    #- os : linux
-      #dist: xenial
-      #compiler: clang
 install:
-  - sudo apt-get install python3 python3-pip
-  - sudo pip3 install --upgrade pip
-  - sudo pip3 install pytest pexpect conan
+  - sudo apt-get install python3 python3-pip python python-pip
+  - sudo pip3 install
+  - sudo pip3 install pytest pexpect
+  - sudo pip install conan
   - conan profile new default --detect && conan profile update 'settings.compiler.libcxx=libstdc++11' default
   - conan install .
   - source activate.sh
