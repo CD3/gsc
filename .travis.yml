@@ -16,6 +16,7 @@ matrix:
       #compiler: clang
 install:
   - sudo apt-get install python3 python3-pip
+  - sudo pip3 install --upgrade pip
   - sudo pip3 install pytest pexpect conan
   - conan profile new default --detect && conan profile update 'settings.compiler.libcxx=libstdc++11' default
   - conan install .
