@@ -6,26 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules"
 include(${CMAKE_BINARY_DIR}/conan_paths.cmake OPTIONAL)
 
 
-# Boost libraries
-message(STATUS "Checking for Conan-installed Boost")
-find_package( boost QUIET ) # conan version
-if( TARGET boost::boost )
-  add_library(Boost::boost INTERFACE IMPORTED )
-  target_link_libraries( Boost::boost INTERFACE boost::boost )
-
-  add_library(Boost::log   INTERFACE IMPORTED )
-  add_library(Boost::filesystem  INTERFACE IMPORTED )
-  add_library(Boost::program_options INTERFACE IMPORTED )
-  target_link_libraries( Boost::log INTERFACE Boost::boost )
-  target_link_libraries( Boost::filesystem INTERFACE Boost::boost )
-  target_link_libraries( Boost::program_options INTERFACE Boost::boost )
-  message(STATUS "Found Conan-installed Boost")
-else()
-  message(STATUS "Did not find Conan-installed Boost")
-  message(STATUS "Requiring system installed Boost")
-  set(Boost_USE_STATIC_LIBS ON)
-  find_package( Boost REQUIRED COMPONENTS filesystem log program_options ) # system version
-endif()
+find_package( Boost REQUIRED COMPONENTS filesystem log program_options )
 
 
 add_library( libgsc )
