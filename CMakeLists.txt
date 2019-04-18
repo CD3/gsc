@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.13 )
+cmake_minimum_required( VERSION 3.10 )
 
 project(libgsc)
 
@@ -6,6 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules"
 include(${CMAKE_BINARY_DIR}/conan_paths.cmake OPTIONAL)
 
 
+set(Boost_USE_STATIC_LIBS ON)
 find_package( Boost REQUIRED COMPONENTS filesystem log program_options )
 
 
@@ -38,6 +39,7 @@ target_compile_features( libgsc PUBLIC cxx_std_17 )
 
 add_executable( gsc applications/gsc.cpp )
 target_link_libraries( gsc
+  PRIVATE
   libgsc
   Boost::boost
   Boost::program_options

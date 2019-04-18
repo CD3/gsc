@@ -553,7 +553,7 @@ void Session::process_user_input()
 
       timeval timeout;
       timeout.tv_sec  = 0;
-      timeout.tv_usec = 1000000;
+      timeout.tv_usec = 0;
 
       int rc;
 
