@@ -651,6 +651,12 @@ void Session::process_script_line()
         std::this_thread::sleep_for(
             std::chrono::milliseconds(boost::lexical_cast<int>(match->second)));
       }
+      if (match->first == "STDOUT") {
+          state.output_mode = OutputMode::ALL;
+      }
+      if (match->first == "NOSTDOUT") {
+          state.output_mode = OutputMode::NONE;
+      }
 
       state.script_line_it++;
       continue;
