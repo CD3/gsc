@@ -11,15 +11,18 @@
 #include <vector>
 
 #include "./Utils.hpp"
+#include "./CommandParser.hpp"
 
 struct SessionScript
 {
   std::vector<std::string> lines;
   Context context;
+  CommandParser command_parser;
   std::string render_stag = "%";
   std::string render_etag = "%";
 
   void load(const std::string& filename);
+  void load(const std::string& filename, std::vector<std::string>& a_lines);
   void render();
 
 };
