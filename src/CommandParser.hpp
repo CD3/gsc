@@ -37,6 +37,7 @@ struct CommandParser
     commands.add("NOSTDOUT", "NOSTDOUT");
     commands.add("INCLUDE", "INCLUDE");
     commands.add("INC", "INCLUDE");
+    commands.add("WAIT", "WAIT");
   }
 
   std::optional< std::pair< std::string, std::string > > parse( std::string line )

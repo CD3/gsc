@@ -657,6 +657,10 @@ void Session::process_script_line()
       if (match->first == "NOSTDOUT") {
           state.output_mode = OutputMode::NONE;
       }
+      if (match->first == "WAIT") {
+        char ch;
+        get_from_stdin(ch);
+      }
 
       state.script_line_it++;
       continue;
