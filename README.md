@@ -2,14 +2,14 @@
 
 A simple utility that allows you to run guided scripts on Linux, useful for giving command line demonstrations.
 
-**`gsc` has been rewritten**
+**This project is no longer maintained**
 
-`gsc` has been completely rewritten from scatch. New features include:
+`gsc` has gone through several rewrites (see the history below), and most recenty, it was written in Python.
 
-- Modal (insert, command, and pass through mode).
-- Support for monitoring sessions via socket connection.
-- "simulated typing" has been replaced with actual typing. Just hit a key (in insert mode) to have the next character loaded.
-- (More) graceful failure.
+https://github.com/CD3/pygsc
+
+If you are using this version and prefer C++, by all means, you can continue to use it, but I have started using `pygsc` for my
+classes.
 
 ## Description
 
